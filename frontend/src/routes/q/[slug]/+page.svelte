@@ -2,9 +2,11 @@
   import { page } from '$app/state';
   import { onMount } from 'svelte';
   import { FlowsService } from '$lib/services/flows.service';
+  import { SubmissionsService } from '$lib/services/submissions.service';
   import type { Flow, FlowNode, FlowEdge } from '$lib/dto/flows/types';
 
-  const service = new FlowsService();
+  const flowService = new FlowsService();
+  const submissionService = new SubmissionsService();
 
   let flow = $state<Flow | null>(null);
   let loading = $state(true);
@@ -17,17 +19,21 @@
   let answers = $state<{ node_id: string; question: string; value: string }[]>([]);
   let endNode = $state<FlowNode | null>(null);
   let resultText = $state('');
+  let submitting = $state(false);
+  let inputValue = $state('');
 
   let currentNode = $derived(flow?.nodes.find(n => n.id === currentNodeId) || null);
-
   let totalQuestions = $derived(flow?.nodes.filter(n => n.type === 'question').length || 0);
   let answeredCount = $derived(answers.length);
   let progressPercent = $derived(totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0);
 
   onMount(async () => {
     try {
-      flow = await service.getBySlug(page.params.slug);
-      if (!flow) error = 'Questionário não encontrado';
+      const slug = page.params.slug;
+      if (slug) {
+        flow = await flowService.getBySlug(slug);
+      }
+      if (!flow) error = 'Questionnaire non trouve';
     } catch (e: any) {
       error = e.message;
     } finally {
@@ -50,7 +56,6 @@
   function processCurrentNode() {
     if (!currentNode) return;
     if (currentNode.type === 'message') {
-      // Show message then auto-advance
       setTimeout(() => {
         const edge = flow!.edges.find(e => e.source === currentNodeId);
         if (edge) {
@@ -60,23 +65,45 @@
       }, 2500);
     } else if (currentNode.type === 'end') {
       endNode = currentNode;
-      if (currentNode.data.endType === 'quote') {
-        generateQuote();
-      }
       phase = 'end';
+      submitToBackend();
+    }
+  }
+
+  async function submitToBackend() {
+    if (!flow || !endNode) return;
+    submitting = true;
+    resultText = '';
+    try {
+      const result = await submissionService.submit({
+        flow_id: flow._id || '',
+        flow_slug: flow.slug,
+        client_name: clientData.name,
+        client_email: clientData.email,
+        client_phone: clientData.phone || undefined,
+        client_address: clientData.address || undefined,
+        answers,
+        end_node_id: endNode.id
+      });
+      if (result.quote_text) {
+        resultText = result.quote_text;
+      } else {
+        resultText = 'Votre demande a ete enregistree. Merci!';
+      }
+    } catch (e: any) {
+      resultText = 'Erreur lors de l\'envoi. Veuillez reessayer.';
+    } finally {
+      submitting = false;
     }
   }
 
   function selectAnswer(value: string, handleId?: string) {
     if (!currentNode) return;
-
     answers = [...answers, {
       node_id: currentNode.id,
       question: currentNode.data.title,
       value
     }];
-
-    // Find next edge by handle, fallback to first edge
     let nextEdge: FlowEdge | undefined;
     if (handleId) {
       nextEdge = flow!.edges.find(e => e.source === currentNodeId && e.sourceHandle === handleId);
@@ -87,7 +114,6 @@
     if (!nextEdge) {
       nextEdge = flow!.edges.find(e => e.source === currentNodeId);
     }
-
     if (nextEdge) {
       currentNodeId = nextEdge.target;
       processCurrentNode();
@@ -105,22 +131,6 @@
     phase = 'questions';
     endNode = null;
   }
-
-  function generateQuote() {
-    let text = '=== DEVIS ESTIMATIF ===\n\n';
-    text += `Client: ${clientData.name}\n`;
-    text += `Email: ${clientData.email}\n`;
-    if (clientData.phone) text += `Tél: ${clientData.phone}\n`;
-    if (clientData.address) text += `Adresse: ${clientData.address}\n`;
-    text += '\n--- Réponses ---\n\n';
-    for (const a of answers) {
-      text += `${a.question}: ${a.value}\n`;
-    }
-    text += '\n(Devis IA sera disponible prochainement)';
-    resultText = text;
-  }
-
-  let inputValue = $state('');
 </script>
 
 <div class="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center p-4">
@@ -150,7 +160,7 @@
             <input type="email" bind:value={clientData.email} class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1 uppercase tracking-wide">Téléphone</label>
+            <label class="block text-xs font-medium text-gray-600 mb-1 uppercase tracking-wide">Telephone</label>
             <input type="tel" bind:value={clientData.phone} class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow" />
           </div>
           <div>
@@ -247,7 +257,7 @@
                 type="text"
                 bind:value={inputValue}
                 class="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                placeholder="Votre réponse"
+                placeholder="Votre reponse"
               />
               <button
                 onclick={() => { selectAnswer(inputValue); inputValue = ''; }}
@@ -273,7 +283,14 @@
 
     {:else if phase === 'end' && endNode}
       <div class="p-8">
-        {#if endNode.data.endType === 'specialist'}
+        {#if submitting}
+          <div class="text-center py-8">
+            <div class="w-10 h-10 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p class="text-sm text-gray-600 font-medium">Generation de votre devis en cours...</p>
+            <p class="text-xs text-gray-400 mt-1">Cela peut prendre quelques secondes</p>
+          </div>
+
+        {:else if endNode.data.endType === 'specialist'}
           <div class="text-center">
             <div class="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
               <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -283,7 +300,7 @@
             <h3 class="text-lg font-bold text-gray-900 mb-2">{endNode.data.title}</h3>
             <p class="text-sm text-gray-600 mb-4">{endNode.data.message}</p>
             <div class="bg-green-50 border border-green-200 rounded-lg p-3 text-xs text-green-700">
-              Vos données ont été enregistrées. Nous vous contacterons sous 24h.
+              Vos donnees ont ete enregistrees. Nous vous contacterons sous 24h.
             </div>
           </div>
 
@@ -294,7 +311,7 @@
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
               </svg>
             </div>
-            <h3 class="text-lg font-bold text-gray-900">Votre devis est prêt!</h3>
+            <h3 class="text-lg font-bold text-gray-900">Votre devis est pret!</h3>
           </div>
           <pre class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-xs whitespace-pre-wrap font-mono text-gray-700 max-h-80 overflow-y-auto">{resultText}</pre>
 
@@ -306,7 +323,7 @@
               </svg>
             </div>
             <h3 class="text-lg font-bold text-gray-900 mb-2">{endNode.data.title}</h3>
-            <p class="text-sm text-gray-600">Merci pour vos réponses!</p>
+            <p class="text-sm text-gray-600">Merci pour vos reponses!</p>
           </div>
         {/if}
       </div>

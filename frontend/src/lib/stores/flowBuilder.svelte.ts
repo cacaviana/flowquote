@@ -136,6 +136,7 @@ export function createFlowBuilderStore() {
     get flowName() { return flowName; },
     set flowName(v: string) { flowName = v; hasChanges = true; },
     get flowId() { return flowId; },
+    set flowId(v: string | null) { flowId = v; },
     get selectedNodeId() { return selectedNodeId; },
     set selectedNodeId(v: string | null) { selectedNodeId = v; },
     get hasChanges() { return hasChanges; },

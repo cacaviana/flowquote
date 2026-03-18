@@ -239,23 +239,52 @@
       </div>
 
       {#if data.endType === 'quote'}
+        <!-- Tabela de preços -->
         <div>
-          <label class="label">Contexto do negócio</label>
+          <div class="flex items-center gap-1.5 mb-1">
+            <svg class="w-3.5 h-3.5 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <label class="label !mb-0">Tabela de preços</label>
+          </div>
           <textarea
             value={data.businessContext || ''}
             oninput={(e) => onUpdate({ businessContext: (e.target as HTMLTextAreaElement).value })}
-            class="input h-28 resize-y"
-            placeholder="Descreva seu negócio, preços, serviços..."
+            class="input h-36 resize-y font-mono text-xs"
+            placeholder={"Ex:\nBorne 32A Level 2: $699\nInstallation murale: $250\nCâblage (25-50 pieds): +$150\nUpgrade panneau 100A→200A: $1,800"}
           ></textarea>
+          <p class="text-xs text-gray-400 mt-1">Liste todos os produtos e preços. A IA usa essa tabela para calcular o orçamento.</p>
         </div>
+
+        <!-- Regras de negócio -->
         <div>
-          <label class="label">Instrução para IA</label>
+          <div class="flex items-center gap-1.5 mb-1">
+            <svg class="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+            <label class="label !mb-0">Regras de negócio</label>
+          </div>
           <textarea
             value={data.aiInstruction || ''}
             oninput={(e) => onUpdate({ aiInstruction: (e.target as HTMLTextAreaElement).value })}
-            class="input h-20 resize-y"
-            placeholder="Como a IA deve formatar o orçamento..."
+            class="input h-28 resize-y text-xs"
+            placeholder={"Ex:\n- Si panneau 100A et pas d'espaces libres → inclure upgrade 100A→200A ($1,800)\n- Borne Level 2 → appliquer subvention Roulez Vert (-$600)\n- Câblage: ajouter 15 pieds à la distance indiquée\n- Toujours inclure TPS (5%) et TVQ (9.975%)"}
           ></textarea>
+          <p class="text-xs text-gray-400 mt-1">Diga quando aplicar cada preço. Quanto mais claro, melhor o orçamento.</p>
+        </div>
+
+        <!-- Aviso IA -->
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <div class="flex gap-2">
+            <svg class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+            </svg>
+            <div>
+              <p class="text-xs font-semibold text-amber-800">Regras claras = orçamentos precisos</p>
+              <p class="text-xs text-amber-700 mt-1">Sem regras, a IA pode esquecer itens ou calcular errado. Descreva as condições de cada preço (ex: "se X, incluir Y").</p>
+              <p class="text-xs text-amber-600 mt-1.5 italic">Mesmo assim, IAs podem cometer erros. Verifique sempre o orçamento antes de enviar ao cliente.</p>
+            </div>
+          </div>
         </div>
       {/if}
 
