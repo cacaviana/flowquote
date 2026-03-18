@@ -23,9 +23,17 @@ jobs:
           npm ci
           npm run build
 
+      - name: Prepare deploy package
+        run: |
+          mkdir -p deploy
+          cp -r frontend/build deploy/build
+          cp frontend/package.json deploy/
+          cp frontend/package-lock.json deploy/
+          cd deploy && npm ci --omit=dev
+
       - name: Deploy to Azure
         uses: azure/webapps-deploy@v3
         with:
           app-name: totalelectrique
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: frontend
+          package: deploy
