@@ -1,5 +1,5 @@
 import { MongoClient, type Db } from 'mongodb';
-import { MONGODB_URI, MONGODB_DATABASE } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
 let client: MongoClient;
 let db: Db;
@@ -7,9 +7,12 @@ let db: Db;
 export async function getDb(): Promise<Db> {
   if (db) return db;
 
-  client = new MongoClient(MONGODB_URI);
+  const uri = env.MONGODB_URI;
+  if (!uri) throw new Error('MONGODB_URI not set');
+
+  client = new MongoClient(uri);
   await client.connect();
-  db = client.db(MONGODB_DATABASE || 'flowquote');
+  db = client.db(env.MONGODB_DATABASE || 'flowquote');
 
   return db;
 }
