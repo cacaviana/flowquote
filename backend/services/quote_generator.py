@@ -98,7 +98,9 @@ quote_agent = Agent(
         "INTERDIT d'ajouter des subventions, rabais ou deductions sauf si elles sont dans le CSV. "
         "Pour le cablage: utilise le prix unitaire du CSV multiplie par la quantite EXACTE donnee par le client (ex: client dit 30 pieds → 9$/pied x 30 = 270$). "
         "INTERDIT de changer la quantite donnee par le client. Si le client dit 30 pieds, utilise 30, PAS 45 ou autre. "
-        "Si le client demande un produit/service qui n'existe pas dans le CSV, inclure l'item avec prix 0 et ajouter '(prix a consulter)' dans la description. "
+        "Si le client demande un produit/service qui n'existe pas EXACTEMENT dans le CSV, inclure l'item avec la description exacte demandee par le client, prix 0, et ajouter '(prix a consulter)'. "
+        "INTERDIT de remplacer un produit inexistant par un produit similaire (ex: 'murale interieure' n'existe pas → NE PAS utiliser 'murale exterieure'). "
+        "INTERDIT de changer 'interieur' en 'exterieur', 'plafond' en 'murale', ou toute autre substitution de localisation. "
         "Toujours appliquer TPS (5%) et TVQ (9.975%) sur le sous-total. "
         "Les montants doivent etre en dollars canadiens."
     ),
@@ -108,7 +110,6 @@ quote_agent = Agent(
 @quote_agent.system_prompt
 def build_context(ctx: RunContext[QuoteDeps]) -> str:
     """Injecte le contexte complet dans le prompt systeme."""
-    # Parse CSV en tableau lisible
     csv_table = _format_csv_for_prompt(ctx.deps.pricing_csv)
 
     answers_text = "\n".join(
@@ -124,7 +125,7 @@ REGLES STRICTES:
 2. Le prix unitaire DOIT etre exactement celui du catalogue — JAMAIS un autre prix
 3. Pour les produits vendus a l'unite (ex: pied), multiplier prix x quantite
 4. NE PAS ajouter de subventions, rabais ou deductions — ce n'est pas dans le catalogue
-5. Si le client demande quelque chose qui n'est pas dans le catalogue, le mentionner dans les recommandations MAIS NE PAS l'ajouter comme item
+5. Si un produit est absent du catalogue, inclure avec prix 0 et '(prix a consulter)'
 
 CLIENT:
 Nom: {ctx.deps.client_name}
@@ -242,18 +243,21 @@ def _find_catalog_match(item_description: str, catalog: list[dict]) -> dict | No
                 best_match = product
                 best_len = len(product["name"])
 
-    # Keyword match: need at least 2 meaningful words in common
-    # (avoids false positives like "installation au plafond" matching "installation murale exterieure")
+    # Keyword match: ALL meaningful words from the catalog must appear in the description.
+    # This prevents "installation murale intérieure" from matching "installation murale extérieure"
+    # because "extérieure" would be absent from the description.
     if not best_match:
         for product in catalog:
             prod_words = set(product["name"].split())
             desc_words = set(desc_lower.split())
-            common = prod_words & desc_words
-            meaningful = {w for w in common if len(w) > 3}
-            if len(meaningful) >= 2:
-                if not best_match or len(meaningful) > best_len:
+            meaningful_prod_words = {w for w in prod_words if len(w) > 3}
+            if not meaningful_prod_words:
+                continue
+            # Every meaningful word of the catalog product must be in the description
+            if meaningful_prod_words.issubset(desc_words):
+                if not best_match or len(meaningful_prod_words) > best_len:
                     best_match = product
-                    best_len = len(meaningful)
+                    best_len = len(meaningful_prod_words)
 
     return best_match
 
