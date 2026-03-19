@@ -31,6 +31,25 @@
   let csvPreviewRows = $state<string[][]>([]);
   let csvError = $state('');
   let dragOver = $state(false);
+  let showAgentModal = $state(false);
+  let agentInfo = $state<{ model: string; instructions: string; output_schema: Record<string, any> } | null>(null);
+  let agentLoading = $state(false);
+
+  async function openAgentModal() {
+    showAgentModal = true;
+    if (agentInfo) return;
+    agentLoading = true;
+    try {
+      const res = await fetch('/api/agent-info');
+      if (res.ok) {
+        agentInfo = await res.json();
+      }
+    } catch {
+      // silently fail
+    } finally {
+      agentLoading = false;
+    }
+  }
 
   const CSV_TEMPLATE = `produto,preco,unidade,categoria
 Borne 16A Level 1,499,unidade,borne
@@ -225,6 +244,16 @@ Subvention Roulez Vert (Level 2),-600,unidade,rabais`;
         </svg>
         {store.pricingCsv ? 'CSV carregado' : 'Preços (CSV)'}
       </button>
+      <button
+        onclick={openAgentModal}
+        class="text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md px-3 py-1.5 cursor-pointer transition-colors flex items-center gap-1"
+        title="Ver configuracao do agente IA"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+        </svg>
+        Agente
+      </button>
       {#if store.flowId}
         <button
           onclick={() => goto(`/admin/flows/${store.flowId}/preview`)}
@@ -396,6 +425,82 @@ Subvention Roulez Vert (Level 2),-600,unidade,rabais`;
             Fermer
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Modal: Agente IA (somente leitura) -->
+{#if showAgentModal}
+  <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+      <div class="px-6 py-4 border-b flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+          </svg>
+          <div>
+            <h2 class="text-base font-bold text-gray-900">Agente IA</h2>
+            <p class="text-xs text-gray-500">Configuration en lecture seule</p>
+          </div>
+        </div>
+        <button onclick={() => showAgentModal = false} class="text-gray-400 hover:text-gray-600 cursor-pointer p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto flex-1 space-y-5">
+        {#if agentLoading}
+          <div class="text-center py-8 text-gray-400">Chargement...</div>
+        {:else if agentInfo}
+          <!-- Modelo -->
+          <div>
+            <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Modele</label>
+            <div class="mt-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 font-mono text-sm text-indigo-700">
+              {agentInfo.model}
+            </div>
+          </div>
+
+          <!-- Prompt / Instructions -->
+          <div>
+            <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Prompt (Instructions systeme)</label>
+            <div class="mt-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto">
+              {agentInfo.instructions}
+            </div>
+          </div>
+
+          <!-- Output Schema -->
+          <div>
+            <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Schema de sortie (Output parsing)</label>
+            <div class="mt-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 font-mono text-xs text-gray-600 whitespace-pre-wrap max-h-60 overflow-y-auto">
+              {JSON.stringify(agentInfo.output_schema, null, 2)}
+            </div>
+          </div>
+
+          <!-- Info box -->
+          <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3 flex gap-2">
+            <svg class="w-4 h-4 text-indigo-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+            </svg>
+            <p class="text-xs text-indigo-700">
+              Ce sont les parametres actuels de l'agent IA. Le prompt inclut aussi le catalogue CSV et les reponses du client au moment de la generation.
+              Un validateur verifie chaque item contre le catalogue et corrige les prix automatiquement.
+            </p>
+          </div>
+        {:else}
+          <div class="text-center py-8 text-red-400">Impossible de charger les informations de l'agent. Verifiez que le backend est demarre.</div>
+        {/if}
+      </div>
+
+      <div class="px-6 py-3 border-t flex justify-end">
+        <button
+          onclick={() => showAgentModal = false}
+          class="text-sm font-medium text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
+        >
+          Fermer
+        </button>
       </div>
     </div>
   </div>
