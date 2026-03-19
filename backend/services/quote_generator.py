@@ -172,7 +172,9 @@ async def validate_quote(ctx: RunContext[QuoteDeps], output: QuoteOutput) -> Quo
                 item.unit_price = 0
                 item.quantity = 1
                 item.subtotal = 0
-                item.description = f"{item.description} (prix a consulter)"
+                # Avoid duplicate suffix if AI already added it
+                if "prix" not in item.description.lower() or "consulter" not in item.description.lower():
+                    item.description = f"{item.description} (prix a consulter)"
                 validated_items.append(item)
 
         output.items = validated_items
@@ -231,7 +233,7 @@ def _find_catalog_match(item_description: str, catalog: list[dict]) -> dict | No
         if product["name"] == desc_lower or product["name_original"].lower() == desc_lower:
             return product
 
-    # Partial match: catalog name is contained in the description
+    # Partial match: catalog name is fully contained in the description or vice-versa
     best_match = None
     best_len = 0
     for product in catalog:
@@ -240,16 +242,15 @@ def _find_catalog_match(item_description: str, catalog: list[dict]) -> dict | No
                 best_match = product
                 best_len = len(product["name"])
 
-    # Also check key words (e.g., "cablage" matches "Cablage par pied")
+    # Keyword match: need at least 2 meaningful words in common
+    # (avoids false positives like "installation au plafond" matching "installation murale exterieure")
     if not best_match:
         for product in catalog:
-            # Extract first significant word from both
             prod_words = set(product["name"].split())
             desc_words = set(desc_lower.split())
             common = prod_words & desc_words
-            # Need at least one meaningful word match (not just articles)
             meaningful = {w for w in common if len(w) > 3}
-            if meaningful and len(meaningful) >= 1:
+            if len(meaningful) >= 2:
                 if not best_match or len(meaningful) > best_len:
                     best_match = product
                     best_len = len(meaningful)
