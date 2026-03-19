@@ -93,9 +93,13 @@ quote_agent = Agent(
     output_type=QuoteOutput,
     instructions=(
         "Tu es un assistant de devis professionnel. "
-        "Tu generes des devis EXACTS en utilisant UNIQUEMENT les prix du catalogue CSV fourni. "
-        "Ne jamais inventer un prix. Si un produit n'est pas dans le CSV, ne pas l'inclure. "
-        "Toujours appliquer TPS (5%) et TVQ (9.975%) sur le total. "
+        "REGLE ABSOLUE: Tu dois utiliser UNIQUEMENT les produits et prix qui existent dans le catalogue CSV fourni. "
+        "INTERDIT d'inventer un produit, un prix ou une remise qui n'est pas dans le CSV. "
+        "INTERDIT d'ajouter des subventions, rabais ou deductions sauf si elles sont dans le CSV. "
+        "Pour le cablage: utilise le prix unitaire du CSV multiplie par la quantite (ex: 9$/pied x 30 pieds = 270$). "
+        "Si le client demande un produit/service qui n'existe pas dans le CSV, NE PAS l'inclure dans les items. "
+        "Mentionne-le dans les recommandations a la place. "
+        "Toujours appliquer TPS (5%) et TVQ (9.975%) sur le sous-total. "
         "Les montants doivent etre en dollars canadiens."
     ),
 )
@@ -112,8 +116,15 @@ def build_context(ctx: RunContext[QuoteDeps]) -> str:
         for a in ctx.deps.answers
     )
 
-    prompt = f"""CATALOGUE DE PRIX (source de verite — utilise UNIQUEMENT ces prix):
+    prompt = f"""CATALOGUE DE PRIX (source de verite ABSOLUE — les SEULS produits et prix autorises):
 {csv_table}
+
+REGLES STRICTES:
+1. Chaque item du devis DOIT correspondre a un produit du catalogue ci-dessus
+2. Le prix unitaire DOIT etre exactement celui du catalogue — JAMAIS un autre prix
+3. Pour les produits vendus a l'unite (ex: pied), multiplier prix x quantite
+4. NE PAS ajouter de subventions, rabais ou deductions — ce n'est pas dans le catalogue
+5. Si le client demande quelque chose qui n'est pas dans le catalogue, le mentionner dans les recommandations MAIS NE PAS l'ajouter comme item
 
 CLIENT:
 Nom: {ctx.deps.client_name}
@@ -141,7 +152,31 @@ INSTRUCTIONS DE FORMAT:
 
 @quote_agent.output_validator
 async def validate_quote(ctx: RunContext[QuoteDeps], output: QuoteOutput) -> QuoteOutput:
-    """Valide que les calculs du devis sont corrects."""
+    """Valide que les items existent dans le CSV et que les calculs sont corrects."""
+    catalog = _parse_csv_catalog(ctx.deps.pricing_csv)
+
+    if catalog:
+        validated_items = []
+        for item in output.items:
+            match = _find_catalog_match(item.description, catalog)
+            if match:
+                # Force the unit_price from CSV — no hallucination
+                item.unit_price = match["price"]
+                item.subtotal = round(match["price"] * item.quantity, 2)
+                validated_items.append(item)
+            else:
+                logger.warning(
+                    f"Item hors catalogue: {item.description} @ ${item.unit_price}"
+                )
+                # Keep the item but mark price as 0 (to consult)
+                item.unit_price = 0
+                item.quantity = 1
+                item.subtotal = 0
+                item.description = f"{item.description} (prix a consulter)"
+                validated_items.append(item)
+
+        output.items = validated_items
+
     # Recalculate subtotals
     for item in output.items:
         expected = round(item.unit_price * item.quantity, 2)
@@ -159,6 +194,67 @@ async def validate_quote(ctx: RunContext[QuoteDeps], output: QuoteOutput) -> Quo
     output.total = round(subtotal + tps + tvq, 2)
 
     return output
+
+
+def _parse_csv_catalog(csv_text: str) -> list[dict]:
+    """Parse le CSV en liste de produits avec prix."""
+    if not csv_text or not csv_text.strip():
+        return []
+
+    try:
+        reader = csv.DictReader(io.StringIO(csv_text.strip()))
+        catalog = []
+        for row in reader:
+            name = row.get("produto", "").strip()
+            price_str = row.get("preco", "0").strip()
+            try:
+                price = float(price_str)
+            except ValueError:
+                continue
+            if name:
+                catalog.append({"name": name.lower(), "name_original": name, "price": price})
+        return catalog
+    except Exception:
+        return []
+
+
+def _find_catalog_match(item_description: str, catalog: list[dict]) -> dict | None:
+    """Trouve le produit du catalogue qui correspond le mieux a la description.
+
+    Utilise une correspondance flexible pour gerer les variations de noms
+    que l'IA peut generer (ex: 'Borne 32A Level 2' vs 'Borne 32A').
+    """
+    desc_lower = item_description.lower()
+
+    # Exact match
+    for product in catalog:
+        if product["name"] == desc_lower or product["name_original"].lower() == desc_lower:
+            return product
+
+    # Partial match: catalog name is contained in the description
+    best_match = None
+    best_len = 0
+    for product in catalog:
+        if product["name"] in desc_lower or desc_lower in product["name"]:
+            if len(product["name"]) > best_len:
+                best_match = product
+                best_len = len(product["name"])
+
+    # Also check key words (e.g., "cablage" matches "Cablage par pied")
+    if not best_match:
+        for product in catalog:
+            # Extract first significant word from both
+            prod_words = set(product["name"].split())
+            desc_words = set(desc_lower.split())
+            common = prod_words & desc_words
+            # Need at least one meaningful word match (not just articles)
+            meaningful = {w for w in common if len(w) > 3}
+            if meaningful and len(meaningful) >= 1:
+                if not best_match or len(meaningful) > best_len:
+                    best_match = product
+                    best_len = len(meaningful)
+
+    return best_match
 
 
 def _format_csv_for_prompt(csv_text: str) -> str:

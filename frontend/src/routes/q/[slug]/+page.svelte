@@ -397,7 +397,7 @@
                   <tr class="border-b border-gray-50">
                     <td class="py-2.5 text-gray-800 font-medium">{item.description}</td>
                     <td class="py-2.5 text-center text-gray-500">{item.quantity}</td>
-                    <td class="py-2.5 text-right text-gray-800 font-medium tabular-nums">{formatCurrency(item.subtotal)}</td>
+                    <td class="py-2.5 text-right font-medium tabular-nums {item.subtotal === 0 ? 'text-amber-600 italic' : 'text-gray-800'}">{item.subtotal === 0 ? 'A consulter' : formatCurrency(item.subtotal)}</td>
                   </tr>
                 {/each}
               </tbody>
