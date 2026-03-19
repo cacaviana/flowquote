@@ -2,11 +2,12 @@
   import type { Node } from '@xyflow/svelte';
   import type { FlowNodeData, QuestionType, FlowOption } from '$lib/dto/flows/types';
 
-  let { node, onUpdate, onDelete, onClose } = $props<{
+  let { node, onUpdate, onDelete, onClose, catalogItems = [] } = $props<{
     node: Node;
     onUpdate: (data: Partial<FlowNodeData>) => void;
     onDelete: () => void;
     onClose: () => void;
+    catalogItems?: string[]; // Nomes dos produtos do CSV carregado
   }>();
 
   let data = $derived(node.data as FlowNodeData);
@@ -145,23 +146,88 @@
           {#if hasBranching}
             <p class="text-xs text-blue-500 mb-2">Cada opção cria uma saída — conecte ao próximo nó desejado</p>
           {/if}
-          <div class="space-y-1.5">
+
+          <!-- Aviso se CSV carregado mas alguma opção sem produto vinculado -->
+          {#if catalogItems.length > 0}
+            {@const semProduto = (data.options || []).filter(o => !o.catalogProduct)}
+            {#if semProduto.length > 0}
+              <div class="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2 flex gap-2 items-start">
+                <svg class="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                </svg>
+                <p class="text-xs text-amber-700">
+                  {semProduto.length === 1 ? '1 opção sem' : `${semProduto.length} opções sem`} produto vinculado ao CSV.
+                  A IA pode aluci­nar nesses casos.
+                </p>
+              </div>
+            {/if}
+          {/if}
+
+          <div class="space-y-2">
             {#each data.options || [] as opt}
-              <div class="flex gap-1.5 items-center">
-                <input
-                  type="text"
-                  value={opt.label}
-                  oninput={(e) => updateOption(opt.id, 'label', (e.target as HTMLInputElement).value)}
-                  class="input !py-1.5 flex-1"
-                />
-                <button onclick={() => removeOption(opt.id)} class="w-7 h-7 flex-shrink-0 rounded hover:bg-red-50 flex items-center justify-center text-gray-400 hover:text-red-500 cursor-pointer">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+              <div class="border border-gray-100 rounded-lg p-2 space-y-1.5 bg-gray-50/50">
+                <!-- Label da opção -->
+                <div class="flex gap-1.5 items-center">
+                  <input
+                    type="text"
+                    value={opt.label}
+                    oninput={(e) => updateOption(opt.id, 'label', (e.target as HTMLInputElement).value)}
+                    class="input !py-1.5 flex-1 bg-white"
+                    placeholder="Texto da opção"
+                  />
+                  <button onclick={() => removeOption(opt.id)} class="w-7 h-7 flex-shrink-0 rounded hover:bg-red-50 flex items-center justify-center text-gray-400 hover:text-red-500 cursor-pointer">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- Produto no catálogo (só aparece se CSV foi carregado) -->
+                {#if catalogItems.length > 0}
+                  <div class="flex items-center gap-1.5">
+                    {#if opt.catalogProduct}
+                      <svg class="w-3 h-3 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+                      </svg>
+                    {:else}
+                      <svg class="w-3 h-3 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                      </svg>
+                    {/if}
+                    <input
+                      list="catalog-{opt.id}"
+                      type="text"
+                      value={opt.catalogProduct || ''}
+                      oninput={(e) => updateOption(opt.id, 'catalogProduct', (e.target as HTMLInputElement).value)}
+                      onchange={(e) => updateOption(opt.id, 'catalogProduct', (e.target as HTMLInputElement).value)}
+                      class="input !py-1 text-xs flex-1 bg-white {opt.catalogProduct ? 'border-green-300 text-green-800' : 'border-amber-200 text-gray-500'}"
+                      placeholder="Vincular a produto do CSV..."
+                    />
+                    <datalist id="catalog-{opt.id}">
+                      {#each catalogItems as item}
+                        <option value={item} />
+                      {/each}
+                    </datalist>
+                    {#if opt.catalogProduct}
+                      <button
+                        onclick={() => updateOption(opt.id, 'catalogProduct', '')}
+                        class="text-gray-300 hover:text-red-400 cursor-pointer flex-shrink-0"
+                        title="Remover vínculo"
+                      >
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    {/if}
+                  </div>
+                {/if}
               </div>
             {/each}
           </div>
+
+          {#if catalogItems.length === 0}
+            <p class="text-xs text-gray-400 mt-1.5">Carregue um CSV de preços para vincular cada opção a um produto do catálogo.</p>
+          {/if}
         </div>
       {/if}
 

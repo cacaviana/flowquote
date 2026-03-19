@@ -59,6 +59,7 @@ class QuoteDeps:
     client_email: str
     client_phone: str
     client_address: str
+    catalog_map: dict  # { answer_value_lower → catalogProduct } — mapeamento determinístico do admin
 
 
 # ── Modelo da IA ──
@@ -117,8 +118,46 @@ def build_context(ctx: RunContext[QuoteDeps]) -> str:
         for a in ctx.deps.answers
     )
 
+    # Mapeamentos determinísticos definidos pelo admin (não dependem de raciocínio da IA)
+    confirmed_text = ""
+    absent_text = ""
+    if ctx.deps.catalog_map:
+        catalog = _parse_csv_catalog(ctx.deps.pricing_csv)
+        confirmed = []
+        absent = []
+        for answer in ctx.deps.answers:
+            value = str(answer.get("value", "")).strip()
+            key = value.lower()
+            if key not in ctx.deps.catalog_map:
+                continue
+            product_name = ctx.deps.catalog_map[key]
+            question = answer.get("question", answer.get("node_id", ""))
+            # Verificar se o produto existe no catalogo com preço
+            match = _find_catalog_match(product_name, catalog)
+            if match:
+                confirmed.append(
+                    f'  - {product_name} @ ${match["price"]} '
+                    f'(cliente escolheu "{value}" em "{question}")'
+                )
+            else:
+                absent.append(
+                    f'  - "{value}" (de: "{question}") → produto "{product_name}" '
+                    f'AUSENTE do catalogo → incluir com preco 0 + "(prix a consulter)"'
+                )
+        if confirmed:
+            confirmed_text = (
+                "\n\nPRODUTOS CONFIRMADOS PELO ADMIN (use EXATAMENTE estes, sem alterar):\n"
+                + "\n".join(confirmed)
+            )
+        if absent:
+            absent_text = (
+                "\n\nPRODUTOS AUSENTES DO CATALOGO (admin mapeou, mas nao esta no CSV):\n"
+                + "\n".join(absent)
+                + "\nPara cada um acima: incluir com preco 0 e sufixo '(prix a consulter)'."
+            )
+
     prompt = f"""CATALOGUE DE PRIX (source de verite ABSOLUE — les SEULS produits et prix autorises):
-{csv_table}
+{csv_table}{confirmed_text}{absent_text}
 
 REGLES STRICTES:
 1. Chaque item du devis DOIT correspondre a un produit du catalogue ci-dessus
@@ -337,6 +376,7 @@ class QuoteGenerator:
         answers: list[dict],
         ai_instruction: str = "",
         pricing_csv: str = "",
+        catalog_map: dict | None = None,
     ) -> dict:
         """Gera orcamento usando PydanticAI com output estruturado.
 
@@ -352,6 +392,7 @@ class QuoteGenerator:
             client_email=client_data.get("client_email", ""),
             client_phone=client_data.get("client_phone", ""),
             client_address=client_data.get("client_address", ""),
+            catalog_map=catalog_map or {},
         )
 
         try:

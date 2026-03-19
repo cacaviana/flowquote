@@ -51,6 +51,11 @@ class SubmissionService:
         # Pegar pricing_csv do flow
         pricing_csv = flow_doc.get("pricing_csv", "")
 
+        # Montar mapa node_id → catalogProduct a partir dos nós do flow.
+        # Quando o admin vincula uma opção a um produto do CSV no builder,
+        # esse mapeamento é usado para match determinístico (sem depender da IA).
+        catalog_map = _build_catalog_map(flow_doc.get("nodes", []))
+
         # Criar submission via Factory
         submission_doc = self._factory.create_new(data, end_node)
 
@@ -62,6 +67,7 @@ class SubmissionService:
                 client_data=data,
                 answers=data["answers"],
                 pricing_csv=pricing_csv,
+                catalog_map=catalog_map,
             )
             submission_doc["quote_text"] = quote_result["quote_text"]
             submission_doc["quote_data"] = quote_result["quote_data"]
@@ -73,3 +79,26 @@ class SubmissionService:
 
     async def delete(self, id: str) -> bool:
         return await self._repository.delete(id)
+
+
+def _build_catalog_map(nodes: list) -> dict[str, str]:
+    """Constrói mapa { answer_value → catalogProduct } a partir dos nós do flow.
+
+    Percorre todos os nós de pergunta com opções e, para cada opção que tem
+    catalogProduct definido pelo admin, registra a associação.
+    O match é feito pelo campo `value` da opção (o que é salvo nas respostas).
+    """
+    catalog_map: dict[str, str] = {}
+    for node in nodes:
+        data = node.get("data", {})
+        options = data.get("options", [])
+        for opt in options:
+            catalog_product = opt.get("catalogProduct", "").strip()
+            value = opt.get("value", "").strip()
+            if catalog_product and value:
+                catalog_map[value.lower()] = catalog_product
+            # Também indexa pelo label, para cobrir casos onde o frontend salva o label como value
+            label = opt.get("label", "").strip()
+            if catalog_product and label and label.lower() not in catalog_map:
+                catalog_map[label.lower()] = catalog_product
+    return catalog_map

@@ -15,6 +15,7 @@ export interface FlowOption {
   id: string;
   label: string;
   value: string;
+  catalogProduct?: string; // Nome exato do produto no CSV (opcional, para match determinístico)
 }
 
 export interface FlowNodeData {

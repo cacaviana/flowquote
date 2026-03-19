@@ -33,6 +33,17 @@
   let dragOver = $state(false);
   let showAgentModal = $state(false);
   let agentInfo = $state<{ model: string; instructions: string; output_schema: Record<string, any> } | null>(null);
+
+  // Nomes dos produtos do CSV, para autocomplete no NodeEditor
+  let catalogItems = $derived.by(() => {
+    if (!store.pricingCsv) return [];
+    const { rows, valid } = parseCsv(store.pricingCsv);
+    if (!valid || rows.length < 2) return [];
+    const header = rows[0];
+    const idx = header.indexOf('produto');
+    if (idx === -1) return [];
+    return rows.slice(1).map(r => r[idx]).filter(Boolean);
+  });
   let agentLoading = $state(false);
 
   async function openAgentModal() {
@@ -308,6 +319,7 @@ Subvention Roulez Vert (Level 2),-600,unidade,rabais`;
         onUpdate={(data) => store.updateNodeData(selectedNode.id, data)}
         onDelete={() => store.removeNode(selectedNode.id)}
         onClose={() => store.selectedNodeId = null}
+        {catalogItems}
       />
     {/if}
   </div>
