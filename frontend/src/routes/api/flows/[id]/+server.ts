@@ -47,6 +47,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     version: (existing.version || 0) + 1,
     nodes: body.nodes ?? existing.nodes,
     edges: body.edges ?? existing.edges,
+    pricing_csv: body.pricing_csv ?? existing.pricing_csv ?? '',
     node_count: (body.nodes ?? existing.nodes).length,
     updated_at: new Date().toISOString()
   };

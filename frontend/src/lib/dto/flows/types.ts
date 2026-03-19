@@ -65,6 +65,7 @@ export interface Flow {
   version: number;
   nodes: FlowNode[];
   edges: FlowEdge[];
+  pricing_csv?: string;
   created_at?: string;
   updated_at?: string;
 }

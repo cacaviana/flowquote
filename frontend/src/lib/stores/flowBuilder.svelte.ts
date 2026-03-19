@@ -58,12 +58,14 @@ export function createFlowBuilderStore() {
   let edges = $state.raw<Edge[]>([]);
   let flowName = $state('Novo Fluxo');
   let flowId = $state<string | null>(null);
+  let pricingCsv = $state('');
   let selectedNodeId = $state<string | null>(null);
   let hasChanges = $state(false);
 
-  function loadFlow(flow: { _id?: string; name: string; nodes: FlowNode[]; edges: FlowEdge[] }) {
+  function loadFlow(flow: { _id?: string; name: string; nodes: FlowNode[]; edges: FlowEdge[]; pricing_csv?: string }) {
     flowId = flow._id || null;
     flowName = flow.name;
+    pricingCsv = flow.pricing_csv || '';
     nodes = toSvelteFlowNodes(flow.nodes);
     edges = toSvelteFlowEdges(flow.edges);
     hasChanges = false;
@@ -137,6 +139,8 @@ export function createFlowBuilderStore() {
     set flowName(v: string) { flowName = v; hasChanges = true; },
     get flowId() { return flowId; },
     set flowId(v: string | null) { flowId = v; },
+    get pricingCsv() { return pricingCsv; },
+    set pricingCsv(v: string) { pricingCsv = v; hasChanges = true; },
     get selectedNodeId() { return selectedNodeId; },
     set selectedNodeId(v: string | null) { selectedNodeId = v; },
     get hasChanges() { return hasChanges; },

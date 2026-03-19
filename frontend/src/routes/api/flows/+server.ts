@@ -40,6 +40,7 @@ export const POST: RequestHandler = async ({ request }) => {
     version: 1,
     nodes: body.nodes || [],
     edges: body.edges || [],
+    pricing_csv: body.pricing_csv || '',
     node_count: (body.nodes || []).length,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()

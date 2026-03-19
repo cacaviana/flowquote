@@ -27,8 +27,90 @@
   const service = new FlowsService();
   let saving = $state(false);
   let toast = $state('');
-  let showDocUpload = $state(false);
-  let pricingDoc = $state('');
+  let showCsvUpload = $state(false);
+  let csvPreviewRows = $state<string[][]>([]);
+  let csvError = $state('');
+  let dragOver = $state(false);
+
+  const CSV_TEMPLATE = `produto,preco,unidade,categoria
+Borne 16A Level 1,499,unidade,borne
+Borne 32A Level 2,699,unidade,borne
+Borne 40A Level 2,899,unidade,borne
+Borne 48A Level 2,1099,unidade,borne
+Controller DCC-9,699,unidade,accessoire
+Installation murale exterieure,490,unidade,installation
+Installation sur poteau,690,unidade,installation
+Cablage par pied,9,pied,cablage
+Deplacement,69,unidade,deplacement
+Mise a niveau panneau 100A vers 200A,1800,unidade,upgrade
+Sous-panneau 100A,900,unidade,upgrade
+Subvention Roulez Vert (Level 2),-600,unidade,rabais`;
+
+  function parseCsv(text: string): { rows: string[][]; valid: boolean; error: string } {
+    const lines = text.trim().split('\n').map(l => l.trim()).filter(l => l);
+    if (lines.length < 2) return { rows: [], valid: false, error: 'Le CSV doit avoir au moins un en-tête et une ligne de données' };
+
+    const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const requiredCols = ['produto', 'preco'];
+    const missing = requiredCols.filter(c => !header.includes(c));
+    if (missing.length > 0) return { rows: [], valid: false, error: `Colonnes manquantes: ${missing.join(', ')}. Format requis: produto,preco,unidade,categoria` };
+
+    const rows = lines.map(l => l.split(',').map(c => c.trim()));
+
+    // Validate preco is numeric (skip header)
+    const precoIdx = header.indexOf('preco');
+    for (let i = 1; i < rows.length; i++) {
+      const val = rows[i][precoIdx];
+      if (val && isNaN(parseFloat(val))) {
+        return { rows: [], valid: false, error: `Ligne ${i + 1}: "${val}" n'est pas un prix valide` };
+      }
+    }
+
+    return { rows, valid: true, error: '' };
+  }
+
+  function handleCsvFile(file: File) {
+    csvError = '';
+    csvPreviewRows = [];
+    if (!file.name.endsWith('.csv')) {
+      csvError = 'Seuls les fichiers .csv sont acceptés';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const { rows, valid, error } = parseCsv(text);
+      if (!valid) {
+        csvError = error;
+        return;
+      }
+      csvPreviewRows = rows;
+      store.pricingCsv = text;
+    };
+    reader.readAsText(file);
+  }
+
+  function downloadTemplate() {
+    const blob = new Blob([CSV_TEMPLATE], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'modele_prix.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function openCsvModal() {
+    showCsvUpload = true;
+    csvError = '';
+    // If there's already a CSV loaded, parse it for preview
+    if (store.pricingCsv) {
+      const { rows } = parseCsv(store.pricingCsv);
+      csvPreviewRows = rows;
+    } else {
+      csvPreviewRows = [];
+    }
+  }
 
   const nodeTypes: NodeTypes = {
     start: StartNode as any,
@@ -89,7 +171,8 @@
         name: store.flowName,
         nodes: flowData.nodes,
         edges: flowData.edges,
-        status: 'draft'
+        status: 'draft',
+        pricing_csv: store.pricingCsv
       });
       const saved = await service.save(dto);
       if (saved?._id && !store.flowId) {
@@ -132,14 +215,15 @@
         <span class="w-2 h-2 rounded-full bg-yellow-400" title="Alterações não salvas"></span>
       {/if}
       <button
-        onclick={() => showDocUpload = true}
-        class="text-xs font-medium text-gray-600 hover:text-orange-600 bg-gray-100 hover:bg-orange-50 rounded-md px-3 py-1.5 cursor-pointer transition-colors flex items-center gap-1"
-        title="Enviar tabela de preços"
+        onclick={openCsvModal}
+        class="text-xs font-medium {store.pricingCsv ? 'text-green-700 bg-green-50 hover:bg-green-100' : 'text-gray-600 bg-gray-100 hover:text-orange-600 hover:bg-orange-50'} rounded-md px-3 py-1.5 cursor-pointer transition-colors flex items-center gap-1"
+        data-testid="btn-csv-upload"
+        title="Enviar tabela de precos (CSV)"
       >
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
         </svg>
-        Preços
+        {store.pricingCsv ? 'CSV carregado' : 'Preços (CSV)'}
       </button>
       {#if store.flowId}
         <button
@@ -200,60 +284,118 @@
   </div>
 </div>
 
-<!-- Modal: Upload de documento de preços -->
-{#if showDocUpload}
+<!-- Modal: Upload CSV de preços -->
+{#if showCsvUpload}
   <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full">
+    <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col">
       <div class="px-6 py-4 border-b flex items-center justify-between">
         <div>
-          <h2 class="text-base font-bold text-gray-900">Tabela de Preços</h2>
-          <p class="text-xs text-gray-500 mt-0.5">Cole ou digite a tabela de preços que a IA usará para gerar orçamentos</p>
+          <h2 class="text-base font-bold text-gray-900">Catalogue de prix (CSV)</h2>
+          <p class="text-xs text-gray-500 mt-0.5">Envoyez votre fichier CSV avec les produits et prix. L'IA utilisera ce catalogue pour generer les devis.</p>
         </div>
-        <button onclick={() => showDocUpload = false} class="text-gray-400 hover:text-gray-600 cursor-pointer p-1">
+        <button onclick={() => showCsvUpload = false} class="text-gray-400 hover:text-gray-600 cursor-pointer p-1">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
       </div>
-      <div class="p-6">
-        <textarea
-          bind:value={pricingDoc}
-          rows="12"
-          class="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
-          placeholder="Ex:
-Borne 16A Level 1 — $499
-Borne 32A Level 2 — $699
-Borne 48A Level 2 — $899
-Installation murale — $150
-Installation poteau — $350
-Mise à niveau panneau 200A — $1200
-..."
-        ></textarea>
-        <p class="text-xs text-gray-400 mt-2">Este texto será enviado como contexto para a IA gerar o orçamento personalizado no nó final do tipo "Devis".</p>
+
+      <div class="p-6 overflow-y-auto flex-1 space-y-4">
+        <!-- Download template -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+            </svg>
+            <span class="text-sm text-blue-700">Telechargez le modele CSV pour voir le format attendu</span>
+          </div>
+          <button
+            onclick={downloadTemplate}
+            class="text-xs font-semibold text-blue-700 bg-blue-100 hover:bg-blue-200 px-3 py-1.5 rounded-md cursor-pointer transition-colors"
+          >
+            Telecharger modele
+          </button>
+        </div>
+
+        <!-- Drop zone -->
+        <div
+          class="border-2 border-dashed rounded-xl p-8 text-center transition-colors {dragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'}"
+          ondragover={(e) => { e.preventDefault(); dragOver = true; }}
+          ondragleave={() => dragOver = false}
+          ondrop={(e) => { e.preventDefault(); dragOver = false; const f = e.dataTransfer?.files[0]; if (f) handleCsvFile(f); }}
+        >
+          <svg class="w-10 h-10 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+          </svg>
+          <p class="text-sm text-gray-600 font-medium mb-1">Glissez votre fichier CSV ici</p>
+          <p class="text-xs text-gray-400 mb-3">ou</p>
+          <label class="inline-block bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 cursor-pointer transition-colors">
+            Choisir un fichier
+            <input type="file" accept=".csv" class="hidden" onchange={(e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleCsvFile(f); }} />
+          </label>
+          <p class="text-xs text-gray-400 mt-2">Format: produto,preco,unidade,categoria</p>
+        </div>
+
+        <!-- Error -->
+        {#if csvError}
+          <div class="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+            <svg class="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            </svg>
+            <p class="text-sm text-red-700">{csvError}</p>
+          </div>
+        {/if}
+
+        <!-- Preview table -->
+        {#if csvPreviewRows.length > 0}
+          <div>
+            <h3 class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Apercu du catalogue ({csvPreviewRows.length - 1} produits)</h3>
+            <div class="border border-gray-200 rounded-lg overflow-hidden">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="bg-gray-50">
+                    {#each csvPreviewRows[0] as header}
+                      <th class="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">{header}</th>
+                    {/each}
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each csvPreviewRows.slice(1) as row, i}
+                    <tr class="{i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}">
+                      {#each row as cell, j}
+                        <td class="px-3 py-1.5 text-xs {j === 1 ? 'font-mono font-semibold text-green-700' : 'text-gray-700'}">{j === 1 && !cell.startsWith('-') ? `$${cell}` : j === 1 ? `-$${cell.replace('-','')}` : cell}</td>
+                      {/each}
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        {/if}
       </div>
-      <div class="px-6 py-3 border-t flex justify-end gap-2">
-        <button
-          onclick={() => showDocUpload = false}
-          class="text-sm text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
-        >
-          Cancelar
-        </button>
-        <button
-          onclick={() => {
-            // Salvar o pricingDoc nos nós do tipo end que são quote
-            const endNodes = store.nodes.filter(n => n.type === 'end' && n.data.endType === 'quote');
-            for (const node of endNodes) {
-              store.updateNodeData(node.id, { businessContext: pricingDoc });
-            }
-            showDocUpload = false;
-            toast = `Preços aplicados em ${endNodes.length} nó(s) de orçamento`;
-            setTimeout(() => toast = '', 3000);
-          }}
-          disabled={!pricingDoc.trim()}
-          class="text-sm font-medium bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-40 cursor-pointer transition-colors"
-        >
-          Aplicar aos nós de orçamento
-        </button>
+
+      <div class="px-6 py-3 border-t flex justify-between items-center">
+        <div>
+          {#if store.pricingCsv && csvPreviewRows.length === 0}
+            <span class="text-xs text-green-600 font-medium">CSV deja charge</span>
+          {/if}
+        </div>
+        <div class="flex gap-2">
+          {#if store.pricingCsv}
+            <button
+              onclick={() => { store.pricingCsv = ''; csvPreviewRows = []; toast = 'CSV supprime'; setTimeout(() => toast = '', 2500); }}
+              class="text-xs text-red-600 px-3 py-2 rounded-lg hover:bg-red-50 cursor-pointer transition-colors"
+            >
+              Supprimer CSV
+            </button>
+          {/if}
+          <button
+            onclick={() => showCsvUpload = false}
+            class="text-sm font-medium text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
+          >
+            Fermer
+          </button>
+        </div>
       </div>
     </div>
   </div>
