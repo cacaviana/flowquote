@@ -96,9 +96,9 @@ quote_agent = Agent(
         "REGLE ABSOLUE: Tu dois utiliser UNIQUEMENT les produits et prix qui existent dans le catalogue CSV fourni. "
         "INTERDIT d'inventer un produit, un prix ou une remise qui n'est pas dans le CSV. "
         "INTERDIT d'ajouter des subventions, rabais ou deductions sauf si elles sont dans le CSV. "
-        "Pour le cablage: utilise le prix unitaire du CSV multiplie par la quantite (ex: 9$/pied x 30 pieds = 270$). "
-        "Si le client demande un produit/service qui n'existe pas dans le CSV, NE PAS l'inclure dans les items. "
-        "Mentionne-le dans les recommandations a la place. "
+        "Pour le cablage: utilise le prix unitaire du CSV multiplie par la quantite EXACTE donnee par le client (ex: client dit 30 pieds → 9$/pied x 30 = 270$). "
+        "INTERDIT de changer la quantite donnee par le client. Si le client dit 30 pieds, utilise 30, PAS 45 ou autre. "
+        "Si le client demande un produit/service qui n'existe pas dans le CSV, inclure l'item avec prix 0 et ajouter '(prix a consulter)' dans la description. "
         "Toujours appliquer TPS (5%) et TVQ (9.975%) sur le sous-total. "
         "Les montants doivent etre en dollars canadiens."
     ),
