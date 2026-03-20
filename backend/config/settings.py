@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     # OpenAI
     openai_api_key: Optional[str] = Field(default=None)
+    openai_base_url: Optional[str] = Field(default=None)
     openai_model: str = Field(default="gpt-4o-mini")
 
     # Anthropic

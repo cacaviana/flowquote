@@ -133,20 +133,13 @@ class QuoteDeps:
 # ── Modelo da IA ──
 
 
-def _get_model_name() -> str:
-    provider = settings.ai_provider.lower()
-    if provider == "anthropic" and settings.anthropic_api_key:
-        return f"anthropic:{settings.anthropic_model}"
-    if settings.openai_api_key:
-        return f"openai:{settings.openai_model}"
-    raise ValueError("Nenhuma API key configurada (OPENAI_API_KEY ou ANTHROPIC_API_KEY)")
-
-
 def _setup_env():
     """Garante que as env vars estejam setadas para o PydanticAI."""
     import os
     if settings.openai_api_key and not os.environ.get("OPENAI_API_KEY"):
         os.environ["OPENAI_API_KEY"] = settings.openai_api_key
+    if settings.openai_base_url and not os.environ.get("OPENAI_BASE_URL"):
+        os.environ["OPENAI_BASE_URL"] = settings.openai_base_url
     if settings.anthropic_api_key and not os.environ.get("ANTHROPIC_API_KEY"):
         os.environ["ANTHROPIC_API_KEY"] = settings.anthropic_api_key
 
@@ -154,13 +147,28 @@ def _setup_env():
 _setup_env()
 
 
-# ── Agente PydanticAI ──
+async def _get_model_name() -> str:
+    """Busca modelo do DB (prioridade) ou cai no .env."""
+    from routers.settings import get_ai_config
+    try:
+        cfg = await get_ai_config()
+        provider = cfg["provider"]
+        model = cfg["model"]
+    except Exception:
+        provider = settings.ai_provider.lower()
+        model = settings.anthropic_model if provider == "anthropic" else settings.openai_model
 
-quote_agent = Agent(
-    model=_get_model_name(),
-    deps_type=QuoteDeps,
-    output_type=QuoteOutput,
-    instructions="""## Papel
+    if provider == "anthropic" and settings.anthropic_api_key:
+        return f"anthropic:{model}"
+    if settings.openai_api_key:
+        # Remove base_url residual do DeepSeek se estiver configurado
+        import os
+        os.environ.pop("OPENAI_BASE_URL", None)
+        return f"openai:{model}"
+    raise ValueError("Nenhuma API key configurada")
+
+
+_AGENT_INSTRUCTIONS = """## Papel
 Tu es un assistant de devis professionnel pour des entreprises de services.
 
 ## Regras absolutas — precos
@@ -180,11 +188,26 @@ Tu es un assistant de devis professionnel pour des entreprises de services.
 
 ## Calcul
 - TPS 5% + TVQ 9,975% sur le sous-total.
-- Montants en dollars canadiens.""",
-)
+- Montants en dollars canadiens."""
+
+_agent_cache: dict[str, Agent] = {}
 
 
-@quote_agent.system_prompt
+def _get_or_build_agent(model_name: str) -> Agent:
+    if model_name in _agent_cache:
+        return _agent_cache[model_name]
+    agent = Agent(
+        model=model_name,
+        deps_type=QuoteDeps,
+        output_type=QuoteOutput,
+        instructions=_AGENT_INSTRUCTIONS,
+    )
+    agent.system_prompt(build_context)
+    agent.output_validator(validate_quote)
+    _agent_cache[model_name] = agent
+    return agent
+
+
 def build_context(ctx: RunContext[QuoteDeps]) -> str:
     """Injecte le contexte complet dans le prompt systeme."""
     csv_table = _format_csv_for_prompt(ctx.deps.pricing_csv)
@@ -349,7 +372,6 @@ def _build_confirmed_products(
     return confirmed
 
 
-@quote_agent.output_validator
 async def validate_quote(ctx: RunContext[QuoteDeps], output: QuoteOutput) -> QuoteOutput:
     """Valide que les items existent dans le CSV et que les calculs sont corrects.
 
@@ -608,7 +630,9 @@ class QuoteGenerator:
         )
 
         try:
-            result = await quote_agent.run(
+            model_name = await _get_model_name()
+            agent = _get_or_build_agent(model_name)
+            result = await agent.run(
                 "Genere le devis complet base sur les reponses du client et le catalogue de prix.",
                 deps=deps,
             )
