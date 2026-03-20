@@ -92,19 +92,27 @@ quote_agent = Agent(
     model=_get_model_name(),
     deps_type=QuoteDeps,
     output_type=QuoteOutput,
-    instructions=(
-        "Tu es un assistant de devis professionnel. "
-        "REGLE ABSOLUE: Tu dois utiliser UNIQUEMENT les produits et prix qui existent dans le catalogue CSV fourni. "
-        "INTERDIT d'inventer un produit, un prix ou une remise qui n'est pas dans le CSV. "
-        "INTERDIT d'ajouter des subventions, rabais ou deductions sauf si elles sont dans le CSV. "
-        "Pour le cablage: utilise le prix unitaire du CSV multiplie par la quantite EXACTE donnee par le client (ex: client dit 30 pieds → 9$/pied x 30 = 270$). "
-        "INTERDIT de changer la quantite donnee par le client. Si le client dit 30 pieds, utilise 30, PAS 45 ou autre. "
-        "Si le client demande un produit/service qui n'existe pas EXACTEMENT dans le CSV, inclure l'item avec la description exacte demandee par le client, prix 0, et ajouter '(prix a consulter)'. "
-        "INTERDIT de remplacer un produit inexistant par un produit similaire (ex: 'murale interieure' n'existe pas → NE PAS utiliser 'murale exterieure'). "
-        "INTERDIT de changer 'interieur' en 'exterieur', 'plafond' en 'murale', ou toute autre substitution de localisation. "
-        "Toujours appliquer TPS (5%) et TVQ (9.975%) sur le sous-total. "
-        "Les montants doivent etre en dollars canadiens."
-    ),
+    instructions="""## Papel
+Tu es un assistant de devis professionnel pour des entreprises de services.
+
+## Regras absolutas — precos
+- Utiliser UNIQUEMENT les prix du catalogue CSV. INTERDIT d'inventer ou approximer un prix.
+- INTERDIT d'ajouter subventions, rabais ou deductions absents du CSV.
+- Pour tout produit/metrage: prix unitaire CSV x quantite exacte du client.
+- INTERDIT de modifier la quantite donnee par le client.
+
+## Regras absolutas — nomes de produtos
+- Si un produit client N'EXISTE PAS dans le catalogue: inclure avec la description EXACTE du client, prix 0, suffixe "(prix a consulter)".
+- INTERDIT de renommer ou substituer par un produit similaire du catalogue.
+- INTERDIT de changer "interieur/exterieur", "plafond/murale", "embutido/externo" ou toute variation de localisation.
+
+## Sugestoes complementares (opcional)
+- Tu PEUX ajouter des produits complementaires du catalogue non demandes par le client.
+- Ces produits supplementaires: quantite = 1 uniquement, jamais plus.
+
+## Calcul
+- TPS 5% + TVQ 9,975% sur le sous-total.
+- Montants en dollars canadiens.""",
 )
 
 
@@ -215,10 +223,37 @@ INSTRUCTIONS DE FORMAT:
     return prompt
 
 
+def _build_client_mentions(answers: list[dict], catalog_map: dict) -> set[str]:
+    """Constrói conjunto de palavras-chave vindas das respostas do cliente.
+
+    Inclui valores das respostas, produtos mapeados pelo admin e palavras
+    significativas dos títulos das perguntas.
+    Usado pelo validador para distinguir itens solicitados pelo cliente de
+    itens adicionados por iniciativa da IA (esses ficam com quantity=1).
+    """
+    mentioned: set[str] = set()
+    for answer in answers:
+        value = str(answer.get("value", "")).strip()
+        question = str(answer.get("question", "")).strip()
+        # Admin-mapped option
+        admin_product = catalog_map.get(value.lower(), "")
+        if admin_product:
+            mentioned.add(admin_product.lower())
+        # Raw answer value
+        mentioned.add(value.lower())
+        # Significant words from the question label (e.g. "cabeamento" from
+        # "Metragem de cabeamento" links to "Cabeamento por metro")
+        for word in question.lower().split():
+            if len(word) > 4:
+                mentioned.add(word)
+    return mentioned
+
+
 @quote_agent.output_validator
 async def validate_quote(ctx: RunContext[QuoteDeps], output: QuoteOutput) -> QuoteOutput:
     """Valide que les items existent dans le CSV et que les calculs sont corrects."""
     catalog = _parse_csv_catalog(ctx.deps.pricing_csv)
+    client_mentions = _build_client_mentions(ctx.deps.answers, ctx.deps.catalog_map)
 
     if catalog:
         validated_items = []
@@ -227,6 +262,15 @@ async def validate_quote(ctx: RunContext[QuoteDeps], output: QuoteOutput) -> Quo
             if match:
                 # Force the unit_price from CSV — no hallucination
                 item.unit_price = match["price"]
+                # If item was NOT explicitly requested by client, cap quantity at 1
+                desc_lower = item.description.lower()
+                client_requested = any(
+                    mention in desc_lower or desc_lower in mention
+                    for mention in client_mentions
+                    if mention
+                )
+                if not client_requested:
+                    item.quantity = 1
                 item.subtotal = round(match["price"] * item.quantity, 2)
                 validated_items.append(item)
             else:
