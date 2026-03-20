@@ -6,6 +6,7 @@
 
   const endLabels: Record<string, string> = {
     quote: 'Gera orçamento via IA',
+    booking: 'Abre calendário de agendamento',
     specialist: 'Encaminha para contato',
     thank_you: 'Mensagem de agradecimento'
   };

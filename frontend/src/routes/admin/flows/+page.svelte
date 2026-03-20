@@ -57,6 +57,15 @@
         IA
       </button>
       <button
+        onclick={() => goto('/admin/bookings')}
+        class="text-sm font-medium text-gray-600 hover:text-blue-600 bg-gray-100 hover:bg-blue-50 rounded-lg px-4 py-2 cursor-pointer transition-colors flex items-center gap-1.5"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" />
+        </svg>
+        Agenda
+      </button>
+      <button
         onclick={() => goto('/admin/submissions')}
         class="text-sm font-medium text-gray-600 hover:text-purple-600 bg-gray-100 hover:bg-purple-50 rounded-lg px-4 py-2 cursor-pointer transition-colors flex items-center gap-1.5"
       >

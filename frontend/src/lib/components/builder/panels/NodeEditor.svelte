@@ -26,6 +26,7 @@
 
   const endTypes = [
     { value: 'quote', label: 'Gerar orçamento (IA)' },
+    { value: 'booking', label: 'Agendamento de reunião' },
     { value: 'specialist', label: 'Contato especialista' },
     { value: 'thank_you', label: 'Agradecimento' }
   ];
