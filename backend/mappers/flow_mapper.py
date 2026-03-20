@@ -15,6 +15,7 @@ class FlowMapper:
             "version": doc.get("version", 1),
             "nodes": doc.get("nodes", []),
             "edges": doc.get("edges", []),
+            "pricing_csv": doc.get("pricing_csv", ""),
             "created_at": doc.get("created_at", ""),
             "updated_at": doc.get("updated_at", ""),
         }

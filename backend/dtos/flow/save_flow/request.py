@@ -9,3 +9,4 @@ class SaveFlowRequest(BaseModel):
     edges: list[dict] = Field(default=[])
     status: Optional[str] = Field(default="draft")
     tenant_id: Optional[str] = Field(default="tenant_1")
+    pricing_csv: Optional[str] = Field(default=None)

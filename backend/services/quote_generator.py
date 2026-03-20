@@ -113,67 +113,92 @@ def build_context(ctx: RunContext[QuoteDeps]) -> str:
     """Injecte le contexte complet dans le prompt systeme."""
     csv_table = _format_csv_for_prompt(ctx.deps.pricing_csv)
 
-    answers_text = "\n".join(
-        f"- {a.get('question', a.get('node_id', '?'))}: {a.get('value', '')}"
-        for a in ctx.deps.answers
-    )
+    # Classifica cada resposta em: produto confirmado, produto ausente, ou contexto puro.
+    # Prioridade 1: admin mapeou explicitamente via catalogProduct no builder.
+    # Prioridade 2: auto-detecção por match exato do value com o CSV.
+    # O que não se encaixa em nenhum dos dois → contexto puro (região, amperagem, etc.).
+    catalog = _parse_csv_catalog(ctx.deps.pricing_csv)
 
-    # Mapeamentos determinísticos definidos pelo admin (não dependem de raciocínio da IA)
-    confirmed_text = ""
-    absent_text = ""
-    if ctx.deps.catalog_map:
-        catalog = _parse_csv_catalog(ctx.deps.pricing_csv)
-        confirmed = []
-        absent = []
-        for answer in ctx.deps.answers:
-            value = str(answer.get("value", "")).strip()
-            key = value.lower()
-            if key not in ctx.deps.catalog_map:
-                continue
-            product_name = ctx.deps.catalog_map[key]
-            question = answer.get("question", answer.get("node_id", ""))
-            # Verificar se o produto existe no catalogo com preço
-            match = _find_catalog_match(product_name, catalog)
-            if match:
-                confirmed.append(
-                    f'  - {product_name} @ ${match["price"]} '
-                    f'(cliente escolheu "{value}" em "{question}")'
-                )
+    confirmed: list[str] = []   # produtos com preço confirmado
+    absent: list[str] = []      # produtos mapeados mas ausentes do CSV
+    context_answers: list[str] = []  # respostas que são contexto, não produto
+
+    for answer in ctx.deps.answers:
+        value = str(answer.get("value", "")).strip()
+        question = answer.get("question", answer.get("node_id", "?"))
+
+        # Prioridade 1: admin mapeou esta opção explicitamente
+        admin_product = ctx.deps.catalog_map.get(value.lower(), "")
+        if admin_product:
+            if catalog:
+                match = _find_catalog_match(admin_product, catalog)
+                if match:
+                    confirmed.append(f"  - {admin_product} @ ${match['price']} (cliente escolheu \"{value}\")")
+                else:
+                    absent.append(f"  - \"{value}\" → \"{admin_product}\" ausente do CSV → preco 0 + \"(prix a consulter)\"")
             else:
-                absent.append(
-                    f'  - "{value}" (de: "{question}") → produto "{product_name}" '
-                    f'AUSENTE do catalogo → incluir com preco 0 + "(prix a consulter)"'
-                )
-        if confirmed:
-            confirmed_text = (
-                "\n\nPRODUTOS CONFIRMADOS PELO ADMIN (use EXATAMENTE estes, sem alterar):\n"
-                + "\n".join(confirmed)
-            )
-        if absent:
-            absent_text = (
-                "\n\nPRODUTOS AUSENTES DO CATALOGO (admin mapeou, mas nao esta no CSV):\n"
-                + "\n".join(absent)
-                + "\nPara cada um acima: incluir com preco 0 e sufixo '(prix a consulter)'."
-            )
+                absent.append(f"  - \"{value}\" → \"{admin_product}\" (sem CSV carregado) → preco 0 + \"(prix a consulter)\"")
+            continue
 
-    prompt = f"""CATALOGUE DE PRIX (source de verite ABSOLUE — les SEULS produits et prix autorises):
-{csv_table}{confirmed_text}{absent_text}
+        # Prioridade 2: auto-detecção por match exato
+        if catalog:
+            exact = next(
+                (p for p in catalog if p["name"] == value.lower() or p["name_original"] == value),
+                None,
+            )
+            if exact:
+                confirmed.append(f"  - {exact['name_original']} @ ${exact['price']} (auto-detectado de \"{value}\")")
+                continue
 
-REGLES STRICTES:
-1. Chaque item du devis DOIT correspondre a un produit du catalogue ci-dessus
-2. Le prix unitaire DOIT etre exactement celui du catalogue — JAMAIS un autre prix
-3. Pour les produits vendus a l'unite (ex: pied), multiplier prix x quantite
-4. NE PAS ajouter de subventions, rabais ou deductions — ce n'est pas dans le catalogue
-5. Si un produit est absent du catalogue, inclure avec prix 0 et '(prix a consulter)'
+        # Sem match → contexto puro
+        context_answers.append(f"  - {question}: {value}")
+
+    # Monta seções do prompt
+    confirmed_section = ""
+    if confirmed:
+        confirmed_section = (
+            "\n\nPRODUTOS SELECIONADOS PELO CLIENTE — confirmados no catalogo:\n"
+            "(Copie estes itens NO DEVIS com o preco exato. NAO altere nome nem preco.)\n"
+            + "\n".join(confirmed)
+        )
+
+    absent_section = ""
+    if absent:
+        absent_section = (
+            "\n\nPRODUTOS SELECIONADOS PELO CLIENTE — AUSENTES do catalogo:\n"
+            "(Incluir no devis com preco 0 e sufixo '(prix a consulter)'. NAO substituir por produto similar.)\n"
+            + "\n".join(absent)
+        )
+
+    other_section = ""
+    if context_answers:
+        other_section = (
+            "\n\nOUTRAS RESPOSTAS DO CLIENTE:\n"
+            "(Contexto tecnico — regiao, amperagem, nome, etc. — OU descricoes de servico/produto "
+            "que NAO constam exatamente no catalogo.\n"
+            "REGRA: Se for relevante ao devis, incluir com a DESCRICAO EXATA do cliente "
+            "(INTERDIT de renomear ou substituir pelo nome de um produto do catalogo). "
+            "Se nao estiver no catalogo: preco 0 + \"(prix a consulter)\". "
+            "INTERDIT de inventar um preco aproximado baseado num produto parecido. "
+            "Informacoes pessoais (nome, email, telefone, endereco) NUNCA sao itens.)\n"
+            + "\n".join(context_answers)
+        )
+
+    prompt = f"""CATALOGUE DE PRIX (source de verite ABSOLUE — unicos produtos e precos autorizados):
+{csv_table}{confirmed_section}{absent_section}{other_section}
+
+REGRAS:
+1. Os PRODUTOS CONFIRMADOS acima DEVEM estar no devis com o preco exato — nao alterar
+2. Preco de qualquer item DEVE ser do catalogo — JAMAIS inventar preco
+3. Para produtos por unidade (ex: por pe), multiplicar preco x quantidade
+4. Se servico nao tiver preco no catalogo: incluir com preco 0 + "(prix a consulter)"
+5. Informacoes pessoais do cliente (nome, email, telefone) NUNCA sao itens do devis
 
 CLIENT:
 Nom: {ctx.deps.client_name}
 Email: {ctx.deps.client_email}
 Tel: {ctx.deps.client_phone or 'N/A'}
-Adresse: {ctx.deps.client_address or 'N/A'}
-
-REPONSES DU QUESTIONNAIRE:
-{answers_text}"""
+Adresse: {ctx.deps.client_address or 'N/A'}"""
 
     if ctx.deps.business_rules:
         prompt += f"""
@@ -285,11 +310,16 @@ def _find_catalog_match(item_description: str, catalog: list[dict]) -> dict | No
     # Keyword match: ALL meaningful words from the catalog must appear in the description.
     # This prevents "installation murale intérieure" from matching "installation murale extérieure"
     # because "extérieure" would be absent from the description.
+    # Tokens are "meaningful" if they are long words (>3 chars) OR contain digits (model codes
+    # like "4mp", "8mp", "4k", "32a" etc. that discriminate between products).
     if not best_match:
         for product in catalog:
             prod_words = set(product["name"].split())
             desc_words = set(desc_lower.split())
-            meaningful_prod_words = {w for w in prod_words if len(w) > 3}
+            meaningful_prod_words = {
+                w for w in prod_words
+                if len(w) > 3 or (len(w) >= 2 and any(c.isdigit() for c in w))
+            }
             if not meaningful_prod_words:
                 continue
             # Every meaningful word of the catalog product must be in the description

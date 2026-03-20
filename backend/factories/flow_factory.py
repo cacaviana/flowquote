@@ -39,7 +39,7 @@ class FlowFactory:
         now = cls._now_iso()
         slug = data.get("slug") or cls._generate_slug(data["name"])
 
-        return {
+        doc = {
             "tenant_id": data.get("tenant_id", "tenant_1"),
             "name": data["name"],
             "slug": slug,
@@ -50,6 +50,9 @@ class FlowFactory:
             "created_at": now,
             "updated_at": now,
         }
+        if data.get("pricing_csv") is not None:
+            doc["pricing_csv"] = data["pricing_csv"]
+        return doc
 
     @classmethod
     def create_update(cls, existing: dict, data: dict) -> dict:
@@ -64,7 +67,7 @@ class FlowFactory:
 
         slug = data.get("slug") or cls._generate_slug(data["name"])
 
-        return {
+        update_doc = {
             "name": data["name"],
             "slug": slug,
             "status": data.get("status", existing.get("status", "draft")),
@@ -73,3 +76,9 @@ class FlowFactory:
             "edges": data.get("edges", existing.get("edges", [])),
             "updated_at": cls._now_iso(),
         }
+        # Preserve or update pricing_csv
+        if data.get("pricing_csv") is not None:
+            update_doc["pricing_csv"] = data["pricing_csv"]
+        elif existing.get("pricing_csv"):
+            update_doc["pricing_csv"] = existing["pricing_csv"]
+        return update_doc
