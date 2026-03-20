@@ -356,6 +356,8 @@ def _find_catalog_match(item_description: str, catalog: list[dict]) -> dict | No
     # because "extérieure" would be absent from the description.
     # Tokens are "meaningful" if they are long words (>3 chars) OR contain digits (model codes
     # like "4mp", "8mp", "4k", "32a" etc. that discriminate between products).
+    # IMPORTANT: requires at least 2 meaningful words — a single generic word like "mobile"
+    # or "camera" is not specific enough to confirm a match.
     if not best_match:
         for product in catalog:
             prod_words = set(product["name"].split())
@@ -364,7 +366,7 @@ def _find_catalog_match(item_description: str, catalog: list[dict]) -> dict | No
                 w for w in prod_words
                 if len(w) > 3 or (len(w) >= 2 and any(c.isdigit() for c in w))
             }
-            if not meaningful_prod_words:
+            if len(meaningful_prod_words) < 2:
                 continue
             # Every meaningful word of the catalog product must be in the description
             if meaningful_prod_words.issubset(desc_words):
