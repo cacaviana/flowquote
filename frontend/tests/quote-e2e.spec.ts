@@ -10,15 +10,12 @@ Installation sur poteau,690,unidade,installation
 Cablage par pied,9,pied,cablage
 Deplacement,69,unidade,deplacement`;
 
-// Helper: get the first flow with nodes
+// Always use the dedicated EV charging flow — avoids contaminating other flows' CSVs
+const EV_FLOW_SLUG = 'devis-borne-de-recharge-ev';
+
 async function getTestFlow(request: any) {
-  const listRes = await request.get('/api/flows');
-  const flows = await listRes.json();
-  for (const f of flows) {
-    const fullRes = await request.get(`/api/flows/${f._id}`);
-    const full = await fullRes.json();
-    if (full.nodes && full.nodes.length > 3) return full;
-  }
+  const res = await request.get(`/api/flows/slug/${EV_FLOW_SLUG}`);
+  if (res.ok()) return res.json();
   return null;
 }
 
