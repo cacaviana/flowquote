@@ -1,22 +1,10 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from config.database import mongodb_client
+from services.settings_service import AVAILABLE_MODELS, SettingsService
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
-COLLECTION = "settings"
-DOC_ID = "ai_settings"
-
-MODELS = {
-    "anthropic": [
-        {"id": "claude-sonnet-4-20250514", "label": "Claude Sonnet 4"},
-        {"id": "claude-opus-4-6", "label": "Claude Opus 4.6"},
-    ],
-    "openai": [
-        {"id": "gpt-4o", "label": "GPT-4o"},
-        {"id": "gpt-4.5-preview", "label": "GPT-4.5"},
-    ],
-}
+_service = SettingsService()
 
 
 class AiSettingsRequest(BaseModel):
@@ -24,31 +12,15 @@ class AiSettingsRequest(BaseModel):
     model: str
 
 
-async def get_ai_config() -> dict:
-    """Retorna config de IA atual (DB tem prioridade sobre .env)."""
-    from config.settings import settings
-
-    doc = await mongodb_client.database[COLLECTION].find_one({"_id": DOC_ID})
-    if doc:
-        return {"provider": doc["provider"], "model": doc["model"]}
-    # fallback para .env
-    provider = settings.ai_provider.lower()
-    if provider == "anthropic":
-        return {"provider": "anthropic", "model": settings.anthropic_model}
-    return {"provider": "openai", "model": settings.openai_model}
-
-
 @router.get("/ai")
 async def get_ai_settings():
-    config = await get_ai_config()
-    return {**config, "available_models": MODELS}
+    config = await _service.get_ai_config()
+    return {**config, "available_models": AVAILABLE_MODELS}
 
 
 @router.put("/ai")
 async def update_ai_settings(body: AiSettingsRequest):
-    await mongodb_client.database[COLLECTION].update_one(
-        {"_id": DOC_ID},
-        {"$set": {"provider": body.provider, "model": body.model}},
-        upsert=True,
-    )
-    return {"provider": body.provider, "model": body.model}
+    try:
+        return await _service.update_ai_config(body.provider, body.model)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))

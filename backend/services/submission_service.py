@@ -3,18 +3,18 @@ from data.repositories.mongo.submission_repository import SubmissionRepository
 from data.repositories.mongo.flow_repository import FlowRepository
 from factories.submission_factory import SubmissionFactory
 from mappers.submission_mapper import SubmissionMapper
-from services.quote_generator import QuoteGenerator
+from services.quote_service import QuoteService
 
 
 class SubmissionService:
-    """Camada opaca — orquestra Factory, Repository, Mapper e QuoteGenerator."""
+    """Camada opaca — orquestra Factory, Repository, Mapper e QuoteService."""
 
     def __init__(self):
         self._repository = SubmissionRepository()
         self._flow_repository = FlowRepository()
         self._factory = SubmissionFactory
         self._mapper = SubmissionMapper
-        self._quote_generator = QuoteGenerator
+        self._quote_generator = QuoteService
 
     async def list_all(self) -> dict:
         docs = await self._repository.find_all()
@@ -79,6 +79,48 @@ class SubmissionService:
 
     async def delete(self, id: str) -> bool:
         return await self._repository.delete(id)
+
+    async def export(self, id: str) -> Optional[dict]:
+        """Gera texto do devis, salva .txt e .json localmente, retorna conteudo e caminho."""
+        import os
+        import json
+        from datetime import datetime, timezone
+
+        doc = await self._repository.find_by_id(id)
+        if not doc:
+            return None
+
+        result = self._mapper.to_response(doc)
+
+        exports_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "exports")
+        os.makedirs(exports_dir, exist_ok=True)
+
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        slug = result.get("flow_slug", "unknown")
+        client = result.get("client_name", "unknown").replace(" ", "_")
+        filename = f"devis_{slug}_{client}_{timestamp}.txt"
+        filepath = os.path.join(exports_dir, filename)
+
+        content = f"DEVIS - {result.get('flow_slug', '')}\n"
+        content += f"Date: {result.get('created_at', '')}\n"
+        content += f"Client: {result.get('client_name', '')}\n"
+        content += f"Email: {result.get('client_email', '')}\n"
+        content += f"Tel: {result.get('client_phone', 'N/A')}\n"
+        content += f"Adresse: {result.get('client_address', 'N/A')}\n\n"
+        content += "--- REPONSES ---\n"
+        for a in result.get("answers", []):
+            content += f"- {a.get('question', '')}: {a.get('value', '')}\n"
+        content += "\n--- DEVIS ---\n"
+        content += result.get("quote_text", "Aucun devis genere") + "\n"
+
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        json_path = filepath.replace(".txt", ".json")
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(result, f, ensure_ascii=False, indent=2)
+
+        return {"content": content, "filename": filename, "filepath": filepath}
 
 
 def _build_catalog_map(nodes: list) -> dict[str, str]:

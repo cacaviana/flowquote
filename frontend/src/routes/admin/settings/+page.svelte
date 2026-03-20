@@ -1,9 +1,10 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
+  import { SettingsService } from '$lib/services/settings.service';
+  import type { AvailableModels } from '$lib/dto/settings/responses';
 
-  type ModelOption = { id: string; label: string };
-  type AvailableModels = Record<string, ModelOption[]>;
+  const service = new SettingsService();
 
   let provider = $state('anthropic');
   let model = $state('claude-sonnet-4-20250514');
@@ -13,11 +14,10 @@
   let saved = $state(false);
 
   onMount(async () => {
-    const res = await fetch('/api/settings');
-    const data = await res.json();
-    provider = data.provider;
-    model = data.model;
-    availableModels = data.available_models ?? {};
+    const config = await service.getAiConfig();
+    provider = config.provider;
+    model = config.model;
+    availableModels = config.available_models;
     loading = false;
   });
 
@@ -30,11 +30,7 @@
   async function save() {
     saving = true;
     saved = false;
-    await fetch('/api/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, model })
-    });
+    await service.updateAiConfig(provider, model);
     saving = false;
     saved = true;
     setTimeout(() => (saved = false), 3000);
