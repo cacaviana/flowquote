@@ -1,7 +1,75 @@
 """Agente de orcamento com PydanticAI.
 
-Recebe o CSV de precos + respostas do formulario e gera um orcamento
-estruturado com output parsing. O CSV evita alucinacao de precos.
+PROBLEMA CENTRAL
+----------------
+LLMs baratos (e às vezes os caros) cometem dois tipos de alucinação de catálogo:
+  1. Substituição de nome  — "Camera 4K Ultra HD" vira "Camera IP 8MP" (produto similar presente no CSV)
+  2. Substituição de preço — a IA mantém o nome correto mas usa o preço de um produto parecido
+
+ARQUITETURA ANTI-ALUCINAÇÃO — 3 CAMADAS INDEPENDENTES
+------------------------------------------------------
+As camadas são projetadas para serem complementares: se uma falha (especialmente
+em modelos baratos), as outras ainda protegem o resultado.
+
+Camada 1 — PROMPT ESTRUTURADO  (build_context)
+    Classifica cada resposta do cliente em três buckets ANTES de enviar à IA:
+
+    • PRODUTOS CONFIRMADOS  — opção mapeada pelo admin (catalogProduct) OU match exato
+      do value com o CSV. A IA recebe o nome e o preço correto e deve copiar sem alterar.
+
+    • PRODUTOS AUSENTES     — opção com catalogProduct definido, mas o produto não está no
+      CSV. A IA recebe instrução explícita: preço 0 + "(prix a consulter)", sem substituição.
+
+    • OUTRAS RESPOSTAS      — contexto (região, amperagem, nome do cliente) ou seleções cujo
+      nome não bate exatamente com o CSV. A IA decide se gera item, mas DEVE usar a descrição
+      exata do cliente — INTERDIT de renomear para um produto do catálogo.
+
+    Prompt usa seções com ## para compatibilidade com modelos menores.
+
+Camada 2 — FUZZY MATCH RIGOROSO  (_find_catalog_match)
+    Valida se uma string corresponde a algum produto do CSV.
+    Ordem: exato → parcial → keyword.
+
+    O keyword match exige:
+      • ≥ 2 palavras "significativas" do produto do catálogo (len > 3 ou contém dígito)
+      • Todas essas palavras presentes na descrição
+    Isso impede que "Camera IP 4MP" bata com "Camera 4K Ultra HD" via
+    a palavra genérica "camera" sozinha. Tokens com dígitos (4mp, 32a, 4k)
+    são tratados como significativos mesmo tendo ≤ 3 caracteres.
+
+Camada 3 — VALIDADOR PÓS-IA  (validate_quote)
+    Código puro — não depende do comportamento do modelo.
+    Para cada item que a IA retornou:
+
+    a) Se encontra match no catálogo (via _find_catalog_match):
+       • Força unit_price = preço do CSV (elimina alucinação de preço)
+       • Se o item NÃO foi solicitado pelo cliente (AI adicionou por conta própria):
+         força quantity = 1 (evita quantidades inventadas)
+
+    b) Se NÃO encontra match no catálogo:
+       • unit_price = 0, subtotal = 0
+       • Adiciona sufixo "(prix a consulter)" se ausente
+
+    c) CONFIRMADOS FORÇADOS — produtos que o sistema classificou como confirmados
+       (catalog_map + exact matches) são re-verificados: se a IA os descreveu
+       diferente e o validador não os encontrou, são injetados com o preço correto.
+       Isso protege contra modelos over-conservative (ex: Haiku) que marcam tudo
+       como "A consulter" mesmo quando o produto está confirmado no catálogo.
+
+    Recalcula subtotais, TPS (5%) e TVQ (9,975%) sempre — independente do que a IA calculou.
+
+DADOS DE TESTE
+--------------
+  Flow: devis-automacao-comercial  — 2 armadilhas (Camera 4K Ultra HD, Instalacao embutida teto)
+  Flow: devis-dev-software         — 4 armadilhas (E-commerce avancado, App mobile hibrido,
+                                      API GraphQL, SEO avancado)
+
+RESULTADOS POR MODELO (2026-03-20)
+-----------------------------------
+  claude-sonnet-4  — 100% sem alucinação, itens confirmados precificados corretamente
+  claude-haiku-4.5 — 0% substituição de nome/preço, mas over-conservative (marca tudo como
+                     A consulter quando há muitos itens ausentes); Camada 3c corrige isso
+  gpt-4o-mini      — Falha: substitui nomes e preços, ignora regras do prompt
 """
 
 import csv
@@ -249,9 +317,47 @@ def _build_client_mentions(answers: list[dict], catalog_map: dict) -> set[str]:
     return mentioned
 
 
+def _build_confirmed_products(
+    answers: list[dict], catalog_map: dict, catalog: list[dict]
+) -> list[dict]:
+    """Camada 3c: devolve lista de {name_original, price, answer_value} para cada produto
+    que o sistema classificou como CONFIRMADO (admin-mapped ou exact-match no CSV).
+
+    Usado pelo validador para garantir que itens confirmados apareçam no devis mesmo
+    que a IA os tenha omitido ou marcado erroneamente como 'A consulter'.
+    """
+    confirmed = []
+    for answer in answers:
+        value = str(answer.get("value", "")).strip()
+
+        # Prioridade 1: admin mapeou via catalogProduct
+        admin_product = catalog_map.get(value.lower(), "")
+        if admin_product:
+            match = _find_catalog_match(admin_product, catalog)
+            if match:
+                confirmed.append({"name": match["name_original"], "price": match["price"], "value": value})
+            continue
+
+        # Prioridade 2: match exato do value com CSV
+        exact = next(
+            (p for p in catalog if p["name"] == value.lower() or p["name_original"] == value),
+            None,
+        )
+        if exact:
+            confirmed.append({"name": exact["name_original"], "price": exact["price"], "value": value})
+
+    return confirmed
+
+
 @quote_agent.output_validator
 async def validate_quote(ctx: RunContext[QuoteDeps], output: QuoteOutput) -> QuoteOutput:
-    """Valide que les items existent dans le CSV et que les calculs sont corrects."""
+    """Valide que les items existent dans le CSV et que les calculs sont corrects.
+
+    Aplica as três sub-etapas da Camada 3 (ver docstring do módulo):
+      3a: força preço do CSV para itens encontrados
+      3b: força quantity=1 para itens adicionados pela IA (não solicitados)
+      3c: re-injeta itens confirmados omitidos ou marcados errado pelo modelo
+    """
     catalog = _parse_csv_catalog(ctx.deps.pricing_csv)
     client_mentions = _build_client_mentions(ctx.deps.answers, ctx.deps.catalog_map)
 
@@ -260,9 +366,9 @@ async def validate_quote(ctx: RunContext[QuoteDeps], output: QuoteOutput) -> Quo
         for item in output.items:
             match = _find_catalog_match(item.description, catalog)
             if match:
-                # Force the unit_price from CSV — no hallucination
+                # 3a: força preço do CSV
                 item.unit_price = match["price"]
-                # If item was NOT explicitly requested by client, cap quantity at 1
+                # 3b: se a IA adicionou por conta própria, limita qty=1
                 desc_lower = item.description.lower()
                 client_requested = any(
                     mention in desc_lower or desc_lower in mention
@@ -277,14 +383,44 @@ async def validate_quote(ctx: RunContext[QuoteDeps], output: QuoteOutput) -> Quo
                 logger.warning(
                     f"Item hors catalogue: {item.description} @ ${item.unit_price}"
                 )
-                # Keep the item but mark price as 0 (to consult)
+                # Sem match → preço 0 + sufixo
                 item.unit_price = 0
                 item.quantity = 1
                 item.subtotal = 0
-                # Avoid duplicate suffix if AI already added it
                 if "prix" not in item.description.lower() or "consulter" not in item.description.lower():
                     item.description = f"{item.description} (prix a consulter)"
                 validated_items.append(item)
+
+        # 3c: re-injeta confirmados que a IA omitiu ou marcou errado
+        confirmed_products = _build_confirmed_products(
+            ctx.deps.answers, ctx.deps.catalog_map, catalog
+        )
+        present_names = {it.description.lower().split(" (prix")[0] for it in validated_items}
+        for cp in confirmed_products:
+            name_lower = cp["name"].lower()
+            # Verifica se já está presente com preço correto
+            already_priced = any(
+                name_lower in it.description.lower() and it.unit_price > 0
+                for it in validated_items
+            )
+            if not already_priced:
+                # Descobre a quantidade: procura na resposta original
+                qty = 1
+                for answer in ctx.deps.answers:
+                    if str(answer.get("value", "")).strip() == cp["value"]:
+                        try:
+                            qty = int(answer.get("quantity", 1))
+                        except (ValueError, TypeError):
+                            qty = 1
+                        break
+                injected = QuoteItem(
+                    description=cp["name"],
+                    unit_price=cp["price"],
+                    quantity=qty,
+                    subtotal=round(cp["price"] * qty, 2),
+                )
+                validated_items.append(injected)
+                logger.info(f"Camada 3c: item confirmado re-injetado: {cp['name']} @ ${cp['price']}")
 
         output.items = validated_items
 
