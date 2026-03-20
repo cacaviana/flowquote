@@ -75,6 +75,7 @@ RESULTADOS POR MODELO (2026-03-20)
 import csv
 import io
 import logging
+import re
 from dataclasses import dataclass
 
 from pydantic import BaseModel, Field
@@ -399,6 +400,14 @@ async def validate_quote(ctx: RunContext[QuoteDeps], output: QuoteOutput) -> Quo
                 )
                 if not client_requested:
                     item.quantity = 1
+                # 3b+: para produtos por unidade (pied, metro, etc.) com qty=1,
+                # tenta extrair a quantidade total da descrição quando a IA a embutiu
+                # ex: "Cablage (12 pieds + 15 pieds = 27 pieds total)" → qty=27
+                elif item.quantity == 1 and match.get("unit", "unidade") != "unidade":
+                    numbers = [int(n) for n in re.findall(r'\b(\d+)\b', item.description) if int(n) > 1]
+                    if numbers:
+                        item.quantity = max(numbers)
+                        logger.info(f"Qty extraída da descrição: {item.description!r} → qty={item.quantity}")
                 item.subtotal = round(match["price"] * item.quantity, 2)
                 validated_items.append(item)
             else:
@@ -481,7 +490,8 @@ def _parse_csv_catalog(csv_text: str) -> list[dict]:
             except ValueError:
                 continue
             if name:
-                catalog.append({"name": name.lower(), "name_original": name, "price": price})
+                unit = row.get("unidade", "unidade").strip().lower() or "unidade"
+                catalog.append({"name": name.lower(), "name_original": name, "price": price, "unit": unit})
         return catalog
     except Exception:
         return []
@@ -517,17 +527,25 @@ def _find_catalog_match(item_description: str, catalog: list[dict]) -> dict | No
     # IMPORTANT: requires at least 2 meaningful words — a single generic word like "mobile"
     # or "camera" is not specific enough to confirm a match.
     if not best_match:
+        # Clean description tokens (strip punctuation like parentheses, +, =)
+        desc_words = {re.sub(r'[^\w]', '', w) for w in desc_lower.split()}
+        desc_words.discard('')
+
         for product in catalog:
             prod_words = set(product["name"].split())
-            desc_words = set(desc_lower.split())
             meaningful_prod_words = {
                 w for w in prod_words
                 if len(w) > 3 or (len(w) >= 2 and any(c.isdigit() for c in w))
             }
             if len(meaningful_prod_words) < 2:
                 continue
-            # Every meaningful word of the catalog product must be in the description
-            if meaningful_prod_words.issubset(desc_words):
+            # Every meaningful word of the catalog product must appear in the description.
+            # Prefix match handles French plurals: "pied" matches "pieds", "metro" matches "metros".
+            # Minimum prod_word length of 4 for prefix matching avoids false positives on short words.
+            if all(
+                any(dw == pw or (len(pw) >= 4 and dw.startswith(pw)) for dw in desc_words)
+                for pw in meaningful_prod_words
+            ):
                 if not best_match or len(meaningful_prod_words) > best_len:
                     best_match = product
                     best_len = len(meaningful_prod_words)
