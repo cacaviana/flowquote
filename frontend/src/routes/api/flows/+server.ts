@@ -2,11 +2,15 @@ import { json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async () => {
+export const GET: RequestHandler = async ({ url }) => {
   const db = await getDb();
+  const flowType = url.searchParams.get('flow_type');
+  const filter: Record<string, unknown> = {};
+  if (flowType) filter.flow_type = flowType;
+
   const flows = await db
     .collection('flows')
-    .find({}, { projection: { nodes: 0, edges: 0 } })
+    .find(filter, { projection: { nodes: 0, edges: 0 } })
     .sort({ updated_at: -1 })
     .toArray();
 
@@ -37,6 +41,7 @@ export const POST: RequestHandler = async ({ request }) => {
     name: body.name,
     slug,
     status: body.status || 'draft',
+    flow_type: body.flow_type || 'quote',
     version: 1,
     nodes: body.nodes || [],
     edges: body.edges || [],

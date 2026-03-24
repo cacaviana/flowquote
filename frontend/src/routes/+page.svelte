@@ -34,6 +34,7 @@
           name: 'Agendamento IT Valley',
           slug: `agendamento-${Date.now()}`,
           status: 'draft',
+          flow_type: 'scheduling',
           collect_fields: { name: true, email: true, phone: true, address: false },
           nodes: [
             { id: 'start-1', type: 'start', position: { x: 250, y: 0 }, data: { label: 'Inicio', collect_fields: { name: true, email: true, phone: true, address: false } } },
@@ -57,7 +58,7 @@
 
       if (res.ok) {
         const created = await res.json();
-        goto(`/admin/flows/${created.id || created._id}/edit`);
+        goto(`/admin/scheduling`);
       }
     } catch (e) {
       console.error('Error creating scheduling flow:', e);
