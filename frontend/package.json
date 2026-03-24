@@ -28,6 +28,7 @@
 		"@xyflow/svelte": "^1.5.1",
 		"googleapis": "^171.4.0",
 		"mongodb": "^7.1.0",
+		"openai": "^6.32.0",
 		"tailwindcss": "^4.2.1"
 	}
 }
