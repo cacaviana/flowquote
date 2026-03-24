@@ -46,8 +46,8 @@
   };
 </script>
 
-<div class="min-h-screen bg-gray-50">
-  <header class="bg-white border-b px-6 py-4 flex items-center gap-3">
+<div class="min-h-screen bg-surface-page">
+  <header class="bg-surface-card border-b border-surface-teal px-6 py-4 flex items-center gap-3">
     <button
       onclick={() => goto('/admin/flows')}
       class="text-gray-400 hover:text-gray-700 cursor-pointer transition-colors p-1"
@@ -59,19 +59,19 @@
     </button>
     <div class="h-5 w-px bg-gray-200"></div>
     <div>
-      <h1 class="text-xl font-bold text-gray-900">FlowQuote</h1>
-      <p class="text-sm text-gray-500">Configurações de IA</p>
+      <h1 class="text-xl font-bold text-petra-navy">FlowQuote</h1>
+      <p class="text-sm text-petra-mid">Configurações de IA</p>
     </div>
   </header>
 
   <main class="max-w-lg mx-auto p-6">
     {#if loading}
-      <div class="text-center py-12 text-gray-500">Carregando...</div>
+      <div class="text-center py-12 text-petra-mid">Carregando...</div>
     {:else}
-      <div class="bg-white rounded-xl border p-6 space-y-6">
+      <div class="bg-surface-card rounded-xl border p-6 space-y-6">
         <div>
-          <h2 class="text-base font-semibold text-gray-900 mb-1">Modelo de IA</h2>
-          <p class="text-sm text-gray-500">Escolha o provedor e modelo usado para gerar os orçamentos.</p>
+          <h2 class="text-base font-semibold text-petra-navy mb-1">Modelo de IA</h2>
+          <p class="text-sm text-petra-mid">Escolha o provedor e modelo usado para gerar os orçamentos.</p>
         </div>
 
         <!-- Provider selector -->
@@ -117,7 +117,7 @@
                     : 'border-gray-200 hover:border-gray-300 bg-white'}"
               >
                 <div>
-                  <div class="text-sm font-medium text-gray-900">{m.label}</div>
+                  <div class="text-sm font-medium text-petra-navy">{m.label}</div>
                   <div class="text-xs text-gray-400 font-mono mt-0.5">{m.id}</div>
                 </div>
                 {#if model === m.id}

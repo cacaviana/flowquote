@@ -71,17 +71,17 @@
 <div class="min-h-screen flex items-center justify-center" style="background: linear-gradient(135deg, #0D2033 0%, #173650 100%);">
   <div class="text-center max-w-lg px-6">
     <!-- Logo -->
-    <p class="text-[10px] font-medium tracking-[0.45em] uppercase text-petra-light mb-5 opacity-80">Powered by Petra IA</p>
-    <h1 class="text-5xl font-light tracking-tight text-white mb-3">
+    <p class="text-xs font-medium tracking-[0.45em] uppercase text-petra-light mb-5 opacity-80">Powered by Petra IA</p>
+    <h1 class="text-6xl font-light tracking-tight text-white mb-4">
       Flow<span class="font-semibold bg-gradient-to-r from-petra-steel to-petra-light bg-clip-text text-transparent">Quote</span>
     </h1>
-    <p class="text-base font-light text-petra-pale/70 mb-10">Constructeur visuel de devis avec IA</p>
+    <p class="text-lg font-light text-petra-pale/70 mb-12">Constructeur visuel de devis avec IA</p>
 
     <div class="flex flex-col items-center gap-4">
       <div class="flex gap-3 justify-center">
         <button
           onclick={() => goto('/admin/flows')}
-          class="px-6 py-3 rounded-full text-sm font-normal tracking-wide text-white cursor-pointer transition-all hover:-translate-y-0.5"
+          class="px-8 py-3.5 rounded-full text-base font-normal tracking-wide text-white cursor-pointer transition-all hover:-translate-y-0.5"
           style="background: linear-gradient(135deg, #173650 0%, #265A87 55%, #3578B0 100%); box-shadow: 0 4px 24px rgba(37,90,135,0.22);"
         >
           Panneau Admin
@@ -89,7 +89,7 @@
         {#if !loading && demoSlug}
           <button
             onclick={() => goto(`/q/${demoSlug}`)}
-            class="px-6 py-3 rounded-full text-sm font-normal tracking-wide text-petra-pale cursor-pointer transition-all hover:-translate-y-0.5 hover:bg-white/5"
+            class="px-8 py-3.5 rounded-full text-base font-normal tracking-wide text-petra-pale cursor-pointer transition-all hover:-translate-y-0.5 hover:bg-white/5"
             style="border: 1px solid rgba(165,200,228,0.32);"
           >
             Questionnaire Démo
@@ -101,7 +101,7 @@
       <button
         onclick={createSchedulingFlow}
         disabled={creatingScheduling}
-        class="px-8 py-3.5 rounded-full text-sm font-normal tracking-wide cursor-pointer transition-all hover:-translate-y-0.5 disabled:opacity-40 flex items-center gap-2.5"
+        class="px-8 py-3.5 rounded-full text-base font-normal tracking-wide cursor-pointer transition-all hover:-translate-y-0.5 disabled:opacity-40 flex items-center gap-2.5"
         style="background: var(--color-surface-teal, #C8DDD7); color: #173650; border: 1px solid rgba(40,120,100,0.2); box-shadow: 0 4px 20px rgba(40,120,100,0.15);"
       >
         {#if creatingScheduling}

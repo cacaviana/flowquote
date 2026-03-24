@@ -59,8 +59,8 @@
   }
 </script>
 
-<div class="min-h-screen bg-gray-50">
-  <header class="bg-white border-b px-6 py-4 flex justify-between items-center">
+<div class="min-h-screen bg-surface-page">
+  <header class="bg-surface-card border-b border-surface-teal px-6 py-4 flex justify-between items-center">
     <div class="flex items-center gap-3">
       <button onclick={() => goto('/admin/flows')} class="text-gray-400 hover:text-gray-700 cursor-pointer transition-colors p-1" title="Voltar aos fluxos">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -69,25 +69,25 @@
       </button>
       <div class="h-5 w-px bg-gray-200"></div>
       <div>
-        <h1 class="text-xl font-bold text-gray-900">Demandes de devis</h1>
-        <p class="text-sm text-gray-500">{total} soumission{total !== 1 ? 's' : ''} au total</p>
+        <h1 class="text-xl font-bold text-petra-navy">Demandes de devis</h1>
+        <p class="text-sm text-petra-mid">{total} soumission{total !== 1 ? 's' : ''} au total</p>
       </div>
     </div>
   </header>
 
   <main class="max-w-6xl mx-auto p-6">
     {#if loading}
-      <div class="text-center py-12 text-gray-500">Carregando...</div>
+      <div class="text-center py-12 text-petra-mid">Carregando...</div>
     {:else if submissions.length === 0}
       <div class="text-center py-12">
-        <p class="text-gray-500">Aucune demande pour le moment.</p>
+        <p class="text-petra-mid">Aucune demande pour le moment.</p>
         <p class="text-sm text-gray-400 mt-1">Les soumissions apparaitront ici quand les clients rempliront un questionnaire.</p>
       </div>
     {:else}
-      <div class="bg-white rounded-lg border overflow-hidden">
+      <div class="bg-surface-card rounded-xl border border-surface-teal overflow-hidden">
         <table class="w-full text-sm">
           <thead>
-            <tr class="bg-gray-50 border-b text-left">
+            <tr class="bg-surface-section border-b border-surface-teal text-left">
               <th class="px-4 py-3 font-medium text-gray-600">Client</th>
               <th class="px-4 py-3 font-medium text-gray-600">Flow</th>
               <th class="px-4 py-3 font-medium text-gray-600">Type</th>
@@ -98,10 +98,10 @@
           </thead>
           <tbody>
             {#each submissions as sub}
-              <tr class="border-b hover:bg-gray-50 transition-colors">
+              <tr class="border-b hover:bg-surface-section transition-colors">
                 <td class="px-4 py-3">
-                  <p class="font-medium text-gray-900">{sub.client_name}</p>
-                  <p class="text-xs text-gray-500">{sub.client_email}</p>
+                  <p class="font-medium text-petra-navy">{sub.client_name}</p>
+                  <p class="text-xs text-petra-mid">{sub.client_email}</p>
                 </td>
                 <td class="px-4 py-3">
                   <span class="text-xs text-gray-600">{sub.flow_slug}</span>
@@ -119,7 +119,7 @@
                     <span class="text-xs text-purple-500 ml-1" title="Devis genere">✓IA</span>
                   {/if}
                 </td>
-                <td class="px-4 py-3 text-xs text-gray-500">
+                <td class="px-4 py-3 text-xs text-petra-mid">
                   {formatDate(sub.created_at)}
                 </td>
                 <td class="px-4 py-3">

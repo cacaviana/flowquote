@@ -38,8 +38,8 @@
   };
 </script>
 
-<div class="min-h-screen bg-gray-50">
-  <header class="bg-white border-b px-6 py-4 flex justify-between items-center">
+<div class="min-h-screen bg-surface-page">
+  <header class="bg-surface-card border-b border-surface-teal px-6 py-4 flex justify-between items-center">
     <div class="flex items-center gap-3">
       <button onclick={() => goto('/')} class="text-gray-400 hover:text-gray-700 cursor-pointer transition-colors p-1" title="Voltar ao início">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -48,8 +48,8 @@
       </button>
       <div class="h-5 w-px bg-gray-200"></div>
       <div>
-        <h1 class="text-xl font-bold text-gray-900">FlowQuote</h1>
-        <p class="text-sm text-gray-500">Meus Fluxos</p>
+        <h1 class="text-xl font-bold text-petra-navy">FlowQuote</h1>
+        <p class="text-sm text-petra-mid">Meus Fluxos</p>
       </div>
     </div>
     <div class="flex items-center gap-2">
@@ -75,7 +75,7 @@
       </button>
       <button
         onclick={() => goto('/admin/settings')}
-        class="text-sm font-medium text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-lg px-4 py-2 cursor-pointer transition-colors flex items-center gap-1.5"
+        class="text-sm font-medium text-gray-600 hover:text-petra-navy bg-gray-100 hover:bg-gray-200 rounded-lg px-4 py-2 cursor-pointer transition-colors flex items-center gap-1.5"
         title="Configurações de IA"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -95,7 +95,7 @@
       </button>
       <button
         onclick={createNew}
-        class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 cursor-pointer"
+        class="bg-petra-mid text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-petra-dark cursor-pointer"
       >
       + Novo Fluxo
     </button>
@@ -104,13 +104,13 @@
 
   <main class="max-w-5xl mx-auto p-6">
     {#if loading}
-      <div class="text-center py-12 text-gray-500">Carregando...</div>
+      <div class="text-center py-12 text-petra-mid">Carregando...</div>
     {:else if flows.length === 0}
       <div class="text-center py-12">
-        <p class="text-gray-500 mb-4">Nenhum fluxo criado ainda</p>
+        <p class="text-petra-mid mb-4">Nenhum fluxo criado ainda</p>
         <button
           onclick={createNew}
-          class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 cursor-pointer"
+          class="bg-petra-mid text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-petra-dark cursor-pointer"
         >
           Criar primeiro fluxo
         </button>
@@ -118,19 +118,19 @@
     {:else}
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {#each flows as flow}
-          <div class="bg-white rounded-lg border hover:shadow-md transition-shadow">
+          <div class="bg-surface-card rounded-xl border border-surface-teal hover:shadow-md transition-shadow">
             <!-- Card header clicável para editar -->
             <button
               onclick={() => goto(`/admin/flows/${flow._id}/edit`)}
               class="w-full text-left p-5 pb-3 cursor-pointer"
             >
               <div class="flex justify-between items-start mb-2">
-                <h3 class="font-semibold text-gray-900">{flow.name}</h3>
+                <h3 class="font-semibold text-petra-navy">{flow.name}</h3>
                 <span class="text-xs px-2 py-0.5 rounded-full {statusColors[flow.status]}">
                   {statusLabels[flow.status] || flow.status}
                 </span>
               </div>
-              <p class="text-sm text-gray-500 mb-1">/q/{flow.slug}</p>
+              <p class="text-sm text-petra-mid mb-1">/q/{flow.slug}</p>
               <div class="text-xs text-gray-400">
                 {(flow as any).node_count ?? flow.nodes?.length ?? 0} nós &middot; v{flow.version}
               </div>
@@ -140,7 +140,7 @@
             <div class="border-t px-5 py-3 flex gap-2">
               <button
                 onclick={() => goto(`/admin/flows/${flow._id}/edit`)}
-                class="flex-1 text-xs font-medium text-gray-600 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 rounded-md py-2 cursor-pointer transition-colors flex items-center justify-center gap-1"
+                class="flex-1 text-xs font-medium text-gray-600 hover:text-blue-600 bg-surface-page hover:bg-blue-50 rounded-md py-2 cursor-pointer transition-colors flex items-center justify-center gap-1"
                 title="Editar fluxo"
               >
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -150,7 +150,7 @@
               </button>
               <button
                 onclick={() => goto(`/admin/flows/${flow._id}/preview`)}
-                class="flex-1 text-xs font-medium text-gray-600 hover:text-purple-600 bg-gray-50 hover:bg-purple-50 rounded-md py-2 cursor-pointer transition-colors flex items-center justify-center gap-1"
+                class="flex-1 text-xs font-medium text-gray-600 hover:text-purple-600 bg-surface-page hover:bg-purple-50 rounded-md py-2 cursor-pointer transition-colors flex items-center justify-center gap-1"
                 title="Visualizar questionário"
               >
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -162,7 +162,7 @@
               <a
                 href="/q/{flow.slug}"
                 target="_blank"
-                class="flex-1 text-xs font-medium text-gray-600 hover:text-green-600 bg-gray-50 hover:bg-green-50 rounded-md py-2 cursor-pointer transition-colors flex items-center justify-center gap-1"
+                class="flex-1 text-xs font-medium text-gray-600 hover:text-green-600 bg-surface-page hover:bg-green-50 rounded-md py-2 cursor-pointer transition-colors flex items-center justify-center gap-1"
                 title="Abrir link público"
               >
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -172,7 +172,7 @@
               </a>
               <button
                 onclick={() => deleteFlow(flow)}
-                class="text-xs font-medium text-gray-400 hover:text-red-600 bg-gray-50 hover:bg-red-50 rounded-md py-2 px-2 cursor-pointer transition-colors flex items-center justify-center"
+                class="text-xs font-medium text-gray-400 hover:text-red-600 bg-surface-page hover:bg-red-50 rounded-md py-2 px-2 cursor-pointer transition-colors flex items-center justify-center"
                 title="Apagar fluxo"
               >
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
