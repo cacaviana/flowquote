@@ -26,7 +26,8 @@
   const endTypes = [
     { value: 'quote', label: 'Gerar orçamento (IA)' },
     { value: 'specialist', label: 'Contato especialista' },
-    { value: 'thank_you', label: 'Agradecimento' }
+    { value: 'thank_you', label: 'Agradecimento' },
+    { value: 'scheduling', label: 'Agendamento (Calendário)' }
   ];
 
   // Which question types have individual option handles (branching)
@@ -337,7 +338,7 @@
         <label class="label">Tipo de finalização</label>
         <select
           value={data.endType || 'quote'}
-          onchange={(e) => onUpdate({ endType: (e.target as HTMLSelectElement).value as 'quote' | 'specialist' | 'thank_you' })}
+          onchange={(e) => onUpdate({ endType: (e.target as HTMLSelectElement).value as 'quote' | 'specialist' | 'thank_you' | 'scheduling' })}
           class="input"
         >
           {#each endTypes as et}
@@ -404,6 +405,29 @@
             oninput={(e) => onUpdate({ message: (e.target as HTMLTextAreaElement).value })}
             class="input h-20 resize-y"
             placeholder="Ex: Um especialista entrará em contato em 24h..."
+          ></textarea>
+        </div>
+      {/if}
+
+      {#if data.endType === 'scheduling'}
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <div class="flex gap-2">
+            <svg class="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+            </svg>
+            <div>
+              <p class="text-xs font-semibold text-blue-800">Modo Agendamento</p>
+              <p class="text-xs text-blue-700 mt-1">O cliente escolhe data e horário no calendário. O agendamento é criado no Google Calendar e enviado via webhook (WhatsApp).</p>
+            </div>
+          </div>
+        </div>
+        <div>
+          <label class="label">Mensagem de confirmação</label>
+          <textarea
+            value={data.message || ''}
+            oninput={(e) => onUpdate({ message: (e.target as HTMLTextAreaElement).value })}
+            class="input h-20 resize-y"
+            placeholder="Ex: Escolha o melhor dia e horário para nossa conversa..."
           ></textarea>
         </div>
       {/if}

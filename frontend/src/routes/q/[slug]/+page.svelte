@@ -13,13 +13,25 @@
   let error = $state('');
 
   // Executor state
-  let phase = $state<'form' | 'questions' | 'end'>('form');
+  let phase = $state<'form' | 'questions' | 'end' | 'scheduling'>('form');
   let clientData = $state({ name: '', email: '', phone: '', address: '' });
   let currentNodeId = $state<string | null>(null);
   let answers = $state<{ node_id: string; question: string; value: string; label?: string }[]>([]);
   let endNode = $state<FlowNode | null>(null);
   let submitting = $state(false);
   let inputValue = $state('');
+
+  // Scheduling state
+  let schedulingStep = $state<'calendar' | 'time' | 'confirm' | 'done'>('calendar');
+  let availableDates = $state<{ date: string; available: boolean; slots_count: number }[]>([]);
+  let availableSlots = $state<string[]>([]);
+  let selectedDate = $state('');
+  let selectedTime = $state('');
+  let calMonth = $state(new Date().getMonth());
+  let calYear = $state(new Date().getFullYear());
+  let loadingDates = $state(false);
+  let loadingSlots = $state(false);
+  let schedulingResult = $state<{ message: string } | null>(null);
 
   // Quote result
   let quoteData = $state<{
@@ -77,8 +89,14 @@
       }, 2500);
     } else if (currentNode.type === 'end') {
       endNode = currentNode;
-      phase = 'end';
-      submitToBackend();
+      if (currentNode.data.endType === 'scheduling') {
+        phase = 'scheduling';
+        schedulingStep = 'calendar';
+        loadAvailableDates(calMonth + 1, calYear);
+      } else {
+        phase = 'end';
+        submitToBackend();
+      }
     }
   }
 
@@ -165,6 +183,97 @@
     phase = 'questions';
     endNode = null;
   }
+
+  // ── Scheduling functions ──────────────────────────────
+  async function loadAvailableDates(month: number, year: number) {
+    loadingDates = true;
+    try {
+      const res = await fetch(`/api/scheduling?action=dates&month=${month}&year=${year}`);
+      if (res.ok) availableDates = await res.json();
+    } catch (e) { /* silent */ }
+    loadingDates = false;
+  }
+
+  async function selectDate(date: string) {
+    selectedDate = date;
+    selectedTime = '';
+    loadingSlots = true;
+    try {
+      const res = await fetch(`/api/scheduling?action=slots&date=${date}`);
+      if (res.ok) availableSlots = await res.json();
+    } catch (e) { /* silent */ }
+    loadingSlots = false;
+    schedulingStep = 'time';
+  }
+
+  function selectTime(time: string) {
+    selectedTime = time;
+  }
+
+  function confirmScheduling() {
+    schedulingStep = 'confirm';
+  }
+
+  async function submitScheduling() {
+    submitting = true;
+    try {
+      const res = await fetch('/api/scheduling', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          flow_id: flow?._id || '',
+          flow_slug: flow?.slug || '',
+          lead_name: clientData.name,
+          lead_email: clientData.email,
+          lead_phone: clientData.phone,
+          lead_address: clientData.address,
+          qualifying_answers: answers,
+          scheduled_date: selectedDate,
+          scheduled_time: selectedTime
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        schedulingResult = data;
+        schedulingStep = 'done';
+      }
+    } catch (e) { /* silent */ }
+    submitting = false;
+  }
+
+  function prevCalMonth() {
+    if (calMonth === 0) { calMonth = 11; calYear--; }
+    else calMonth--;
+    loadAvailableDates(calMonth + 1, calYear);
+  }
+
+  function nextCalMonth() {
+    if (calMonth === 11) { calMonth = 0; calYear++; }
+    else calMonth++;
+    loadAvailableDates(calMonth + 1, calYear);
+  }
+
+  function formatDateBR(dateStr: string): string {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+
+  const weekdays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
+  const monthNames = ['Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+  let calDaysInMonth = $derived(new Date(calYear, calMonth + 1, 0).getDate());
+  let calFirstDay = $derived(new Date(calYear, calMonth, 1).getDay());
+  let dateMap = $derived.by(() => {
+    const map: Record<string, { available: boolean; slots_count: number }> = {};
+    for (const d of availableDates) map[d.date] = d;
+    return map;
+  });
+  let canGoPrev = $derived.by(() => {
+    const now = new Date();
+    return calYear > now.getFullYear() || (calYear === now.getFullYear() && calMonth > now.getMonth());
+  });
+  let morningSlots = $derived(availableSlots.filter(s => parseInt(s.split(':')[0]) < 12));
+  let afternoonSlots = $derived(availableSlots.filter(s => parseInt(s.split(':')[0]) >= 12));
 
   function formatCurrency(val: number): string {
     return val.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' });
@@ -499,6 +608,208 @@
           {/if}
         </div>
       {/if}
+
+    <!-- ==================== SCHEDULING ==================== -->
+    {:else if phase === 'scheduling'}
+
+      {#if schedulingStep === 'calendar'}
+        <div class="p-6">
+          <div class="text-center mb-5">
+            <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-3">
+              <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900">Escolha o dia</h3>
+            <p class="text-sm text-gray-500">{endNode?.data.message || 'Selecione uma data disponivel'}</p>
+          </div>
+
+          <!-- Calendar -->
+          <div class="border border-gray-200 rounded-xl overflow-hidden">
+            <!-- Month nav -->
+            <div class="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+              <button onclick={prevCalMonth} disabled={!canGoPrev} class="p-1.5 rounded-lg hover:bg-gray-200 disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer transition-colors">
+                <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
+              </button>
+              <span class="text-sm font-semibold text-gray-800">{monthNames[calMonth]} {calYear}</span>
+              <button onclick={nextCalMonth} class="p-1.5 rounded-lg hover:bg-gray-200 cursor-pointer transition-colors">
+                <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+              </button>
+            </div>
+
+            <!-- Weekday headers -->
+            <div class="grid grid-cols-7 border-b border-gray-100">
+              {#each weekdays as wd}
+                <div class="py-2 text-center text-[10px] font-semibold text-gray-400 uppercase">{wd}</div>
+              {/each}
+            </div>
+
+            <!-- Days -->
+            {#if loadingDates}
+              <div class="py-12 text-center">
+                <div class="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+              </div>
+            {:else}
+              <div class="grid grid-cols-7 gap-px p-2">
+                {#each Array(calFirstDay) as _}<div></div>{/each}
+                {#each Array(calDaysInMonth) as _, i}
+                  {@const day = i + 1}
+                  {@const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`}
+                  {@const info = dateMap[dateStr]}
+                  {@const avail = info?.available ?? false}
+                  {@const isToday = new Date().toISOString().slice(0, 10) === dateStr}
+                  <button
+                    onclick={() => avail && selectDate(dateStr)}
+                    disabled={!avail}
+                    class="relative aspect-square flex items-center justify-center rounded-lg text-sm font-medium transition-all
+                    {selectedDate === dateStr
+                      ? 'bg-blue-600 text-white shadow-md scale-110'
+                      : avail
+                        ? 'text-gray-800 hover:bg-blue-50 hover:text-blue-600 cursor-pointer'
+                        : 'text-gray-300 cursor-not-allowed'}"
+                  >
+                    {day}
+                    {#if isToday && selectedDate !== dateStr}
+                      <span class="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-blue-500"></span>
+                    {/if}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div>
+
+          <button onclick={goBack} class="mt-4 text-xs text-gray-400 hover:text-gray-600 cursor-pointer transition-colors flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
+            Retour
+          </button>
+        </div>
+
+      {:else if schedulingStep === 'time'}
+        <div class="p-6">
+          <div class="text-center mb-5">
+            <h3 class="text-lg font-bold text-gray-900">Escolha o horario</h3>
+            <p class="text-sm text-gray-500 capitalize">{formatDateBR(selectedDate)}</p>
+          </div>
+
+          {#if loadingSlots}
+            <div class="py-12 text-center">
+              <div class="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            </div>
+          {:else}
+            <!-- Morning -->
+            {#if morningSlots.length > 0}
+              <div class="mb-4">
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Manha</p>
+                <div class="grid grid-cols-3 gap-2">
+                  {#each morningSlots as slot}
+                    <button
+                      onclick={() => selectTime(slot)}
+                      class="py-2.5 rounded-xl border-2 text-sm font-semibold transition-all cursor-pointer
+                      {selectedTime === slot ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'}"
+                    >{slot}</button>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+            <!-- Afternoon -->
+            {#if afternoonSlots.length > 0}
+              <div class="mb-4">
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Tarde</p>
+                <div class="grid grid-cols-3 gap-2">
+                  {#each afternoonSlots as slot}
+                    <button
+                      onclick={() => selectTime(slot)}
+                      class="py-2.5 rounded-xl border-2 text-sm font-semibold transition-all cursor-pointer
+                      {selectedTime === slot ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'}"
+                    >{slot}</button>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+            {#if availableSlots.length === 0}
+              <p class="text-center text-gray-400 py-8">Nenhum horario disponivel nesta data</p>
+            {/if}
+          {/if}
+
+          {#if selectedTime}
+            <button
+              onclick={confirmScheduling}
+              class="w-full bg-blue-600 text-white py-3 rounded-lg text-sm font-semibold hover:bg-blue-700 cursor-pointer transition-colors mt-2"
+            >
+              Continuar
+            </button>
+          {/if}
+
+          <button onclick={() => { schedulingStep = 'calendar'; selectedTime = ''; }} class="mt-3 text-xs text-gray-400 hover:text-gray-600 cursor-pointer transition-colors flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
+            Voltar ao calendario
+          </button>
+        </div>
+
+      {:else if schedulingStep === 'confirm'}
+        <div class="p-6">
+          <div class="text-center mb-5">
+            <h3 class="text-lg font-bold text-gray-900">Confirme seu agendamento</h3>
+            <p class="text-sm text-gray-500">Verifique os dados antes de confirmar</p>
+          </div>
+
+          <div class="bg-gray-50 rounded-xl p-5 space-y-3 mb-5">
+            <div class="flex justify-between"><span class="text-xs text-gray-500">Nome</span><span class="text-sm font-medium text-gray-900">{clientData.name}</span></div>
+            <div class="flex justify-between"><span class="text-xs text-gray-500">E-mail</span><span class="text-sm font-medium text-gray-900">{clientData.email}</span></div>
+            {#if clientData.phone}
+              <div class="flex justify-between"><span class="text-xs text-gray-500">Telefone</span><span class="text-sm font-medium text-gray-900">{clientData.phone}</span></div>
+            {/if}
+            <hr class="border-gray-200" />
+            <div class="flex justify-between"><span class="text-xs text-gray-500">Data</span><span class="text-sm font-medium text-gray-900 capitalize">{formatDateBR(selectedDate)}</span></div>
+            <div class="flex justify-between"><span class="text-xs text-gray-500">Horario</span><span class="text-sm font-medium text-gray-900">{selectedTime}</span></div>
+          </div>
+
+          <button
+            onclick={submitScheduling}
+            disabled={submitting}
+            class="w-full bg-blue-600 text-white py-3 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 cursor-pointer transition-colors"
+          >
+            {#if submitting}
+              <span class="inline-flex items-center gap-2">
+                <span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                Agendando...
+              </span>
+            {:else}
+              Confirmar Agendamento
+            {/if}
+          </button>
+
+          <button onclick={() => schedulingStep = 'time'} class="mt-3 text-xs text-gray-400 hover:text-gray-600 cursor-pointer transition-colors flex items-center gap-1 mx-auto">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
+            Voltar
+          </button>
+        </div>
+
+      {:else if schedulingStep === 'done'}
+        <div class="p-8 text-center">
+          <div class="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Agendamento Confirmado!</h3>
+          <p class="text-sm text-gray-500 mb-4">{schedulingResult?.message || 'Voce recebera uma confirmacao em breve.'}</p>
+
+          <div class="bg-green-50 border border-green-200 rounded-xl p-4 text-left space-y-2 mb-4">
+            <div class="flex justify-between">
+              <span class="text-xs text-green-700">Data</span>
+              <span class="text-sm font-semibold text-green-900 capitalize">{formatDateBR(selectedDate)}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-xs text-green-700">Horario</span>
+              <span class="text-sm font-semibold text-green-900">{selectedTime}</span>
+            </div>
+          </div>
+
+          <p class="text-xs text-gray-400">Obrigado, {clientData.name}!</p>
+        </div>
+      {/if}
+
     {/if}
   </div>
 </div>

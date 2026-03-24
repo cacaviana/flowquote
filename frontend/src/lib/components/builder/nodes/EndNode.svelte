@@ -7,7 +7,8 @@
   const endLabels: Record<string, string> = {
     quote: 'Gera orçamento via IA',
     specialist: 'Encaminha para contato',
-    thank_you: 'Mensagem de agradecimento'
+    thank_you: 'Mensagem de agradecimento',
+    scheduling: 'Agendamento no calendário'
   };
 </script>
 

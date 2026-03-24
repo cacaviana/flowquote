@@ -37,7 +37,7 @@ export interface FlowNodeData {
   message?: string;
   isSpecialist?: boolean;
   // End node
-  endType?: 'quote' | 'specialist' | 'thank_you';
+  endType?: 'quote' | 'specialist' | 'thank_you' | 'scheduling';
   businessContext?: string;
   aiInstruction?: string;
   outputFormat?: 'pdf' | 'txt' | 'both';
