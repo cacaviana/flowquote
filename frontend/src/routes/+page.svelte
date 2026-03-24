@@ -97,23 +97,8 @@
         {/if}
       </div>
 
-      <!-- Scheduling Mode -->
-      <button
-        onclick={createSchedulingFlow}
-        disabled={creatingScheduling}
-        class="px-8 py-3.5 rounded-full text-base font-normal tracking-wide cursor-pointer transition-all hover:-translate-y-0.5 disabled:opacity-40 flex items-center gap-2.5"
-        style="background: var(--color-surface-teal, #C8DDD7); color: #173650; border: 1px solid rgba(40,120,100,0.2); box-shadow: 0 4px 20px rgba(40,120,100,0.15);"
-      >
-        {#if creatingScheduling}
-          <span class="w-5 h-5 border-2 border-petra-dark border-t-transparent rounded-full animate-spin"></span>
-          Création...
-        {:else}
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-          </svg>
-          Mode Rendez-vous
-        {/if}
-      </button>
+      <!-- Scheduling Mode (hidden — module not purchased by this client) -->
+      <!-- <button onclick={createSchedulingFlow} disabled={creatingScheduling} class="...">Mode Rendez-vous</button> -->
     </div>
 
     <p class="mt-12 text-[10px] font-light tracking-[0.12em] text-petra-light/40">PETRA IA &middot; Design System v2</p>
