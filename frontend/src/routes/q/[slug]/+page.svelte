@@ -295,8 +295,8 @@
   </style>
 </svelte:head>
 
-<div class="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center p-4">
-  <div class="bg-white rounded-2xl shadow-lg border border-gray-200 max-w-lg w-full overflow-hidden">
+<div class="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center p-4" style="font-weight: 400;">
+  <div class="bg-white rounded-2xl shadow-lg border border-gray-200 max-w-lg w-full overflow-hidden text-base">
 
     {#if loading}
       <div class="p-16 text-center">
@@ -309,30 +309,30 @@
 
     {:else if phase === 'form'}
       <div class="p-8">
-        <h2 class="text-xl font-bold text-gray-900 mb-1">{flow?.name}</h2>
-        <p class="text-sm text-gray-500 mb-6">Obtenez votre devis en quelques minutes</p>
+        <h2 class="text-2xl font-semibold text-gray-900 mb-2">{flow?.name}</h2>
+        <p class="text-base text-gray-500 mb-8">Obtenez votre devis en quelques minutes</p>
 
-        <div class="space-y-3">
+        <div class="space-y-4">
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1 uppercase tracking-wide">Nom *</label>
-            <input type="text" bind:value={clientData.name} class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow" />
+            <label class="block text-sm font-medium text-gray-600 mb-1.5">Nom *</label>
+            <input type="text" bind:value={clientData.name} class="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1 uppercase tracking-wide">E-mail *</label>
-            <input type="email" bind:value={clientData.email} class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow" />
+            <label class="block text-sm font-medium text-gray-600 mb-1.5">E-mail *</label>
+            <input type="email" bind:value={clientData.email} class="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1 uppercase tracking-wide">Telephone</label>
-            <input type="tel" bind:value={clientData.phone} class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow" />
+            <label class="block text-sm font-medium text-gray-600 mb-1.5">Téléphone</label>
+            <input type="tel" bind:value={clientData.phone} class="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1 uppercase tracking-wide">Adresse</label>
-            <input type="text" bind:value={clientData.address} class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow" />
+            <label class="block text-sm font-medium text-gray-600 mb-1.5">Adresse</label>
+            <input type="text" bind:value={clientData.address} class="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow" />
           </div>
           <button
             onclick={startQuestions}
             disabled={!clientData.name.trim() || !clientData.email.trim()}
-            class="w-full bg-blue-600 text-white py-3 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors mt-2"
+            class="w-full bg-blue-600 text-white py-3.5 rounded-xl text-base font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors mt-3"
           >
             Commencer
           </button>
@@ -341,42 +341,42 @@
 
     {:else if phase === 'questions' && currentNode}
       <!-- Progress -->
-      <div class="bg-gray-50 px-6 py-3 flex items-center justify-between border-b border-gray-100">
-        <span class="text-xs font-medium text-gray-500">Question {answeredCount + 1} / {totalQuestions}</span>
+      <div class="bg-gray-50 px-6 py-3.5 flex items-center justify-between border-b border-gray-100">
+        <span class="text-sm font-medium text-gray-500">Question {answeredCount + 1} / {totalQuestions}</span>
         <div class="flex items-center gap-2">
-          <div class="w-24 bg-gray-200 rounded-full h-1.5">
-            <div class="bg-blue-600 h-1.5 rounded-full transition-all duration-300" style="width: {progressPercent}%"></div>
+          <div class="w-28 bg-gray-200 rounded-full h-2">
+            <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: {progressPercent}%"></div>
           </div>
-          <span class="text-xs text-gray-400">{progressPercent}%</span>
+          <span class="text-sm text-gray-400">{progressPercent}%</span>
         </div>
       </div>
 
       <div class="p-8">
         {#if currentNode.type === 'message'}
-          <div class="text-center py-4">
-            <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
-              <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <div class="text-center py-6">
+            <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+              <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">{currentNode.data.title}</h3>
-            <p class="text-sm text-gray-600">{currentNode.data.message}</p>
+            <h3 class="text-xl font-semibold text-gray-900 mb-3">{currentNode.data.title}</h3>
+            <p class="text-base text-gray-600">{currentNode.data.message}</p>
           </div>
         {:else}
-          <h3 class="text-lg font-semibold text-gray-900 mb-1">{currentNode.data.title}</h3>
+          <h3 class="text-xl font-semibold text-gray-900 mb-2">{currentNode.data.title}</h3>
 
           {#if currentNode.data.tooltip}
-            <p class="text-xs text-gray-400 mb-4">{currentNode.data.tooltip}</p>
+            <p class="text-sm text-gray-400 mb-5">{currentNode.data.tooltip}</p>
           {:else}
-            <div class="mb-4"></div>
+            <div class="mb-5"></div>
           {/if}
 
           {#if currentNode.data.questionType === 'single_choice' && currentNode.data.options}
-            <div class="grid grid-cols-2 gap-2">
+            <div class="grid grid-cols-2 gap-3">
               {#each currentNode.data.options as opt}
                 <button
                   onclick={() => selectAnswer(opt.value, opt.id, opt.label)}
-                  class="border-2 border-gray-200 rounded-xl px-3 py-3.5 text-center text-sm font-medium hover:border-blue-500 hover:bg-blue-50 transition-all cursor-pointer"
+                  class="border-2 border-gray-200 rounded-xl px-4 py-4 text-center text-base font-medium hover:border-blue-500 hover:bg-blue-50 transition-all cursor-pointer"
                 >
                   {opt.label}
                 </button>
@@ -386,13 +386,13 @@
             <div class="grid grid-cols-2 gap-3">
               <button
                 onclick={() => selectAnswer('Oui', 'yes')}
-                class="border-2 border-gray-200 rounded-xl px-4 py-4 text-center font-medium hover:border-green-500 hover:bg-green-50 transition-all cursor-pointer"
+                class="border-2 border-gray-200 rounded-xl px-4 py-5 text-center text-lg font-medium hover:border-green-500 hover:bg-green-50 transition-all cursor-pointer"
               >
                 Oui
               </button>
               <button
                 onclick={() => selectAnswer('Non', 'no')}
-                class="border-2 border-gray-200 rounded-xl px-4 py-4 text-center font-medium hover:border-red-400 hover:bg-red-50 transition-all cursor-pointer"
+                class="border-2 border-gray-200 rounded-xl px-4 py-5 text-center text-lg font-medium hover:border-red-400 hover:bg-red-50 transition-all cursor-pointer"
               >
                 Non
               </button>
@@ -402,13 +402,13 @@
               <input
                 type="number"
                 bind:value={inputValue}
-                class="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                class="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                 placeholder="Entrez un nombre"
               />
               <button
                 onclick={() => { selectAnswer(inputValue); inputValue = ''; }}
                 disabled={!inputValue}
-                class="bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40 cursor-pointer transition-colors"
+                class="bg-blue-600 text-white px-6 py-3 rounded-xl text-base font-medium hover:bg-blue-700 disabled:opacity-40 cursor-pointer transition-colors"
               >
                 Suivant
               </button>
@@ -418,13 +418,13 @@
               <input
                 type="text"
                 bind:value={inputValue}
-                class="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                placeholder="Votre reponse"
+                class="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                placeholder="Votre réponse"
               />
               <button
                 onclick={() => { selectAnswer(inputValue); inputValue = ''; }}
                 disabled={!inputValue.trim()}
-                class="bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40 cursor-pointer transition-colors"
+                class="bg-blue-600 text-white px-6 py-3 rounded-xl text-base font-medium hover:bg-blue-700 disabled:opacity-40 cursor-pointer transition-colors"
               >
                 Suivant
               </button>
@@ -434,9 +434,9 @@
 
         <button
           onclick={goBack}
-          class="mt-6 text-xs text-gray-400 hover:text-gray-600 cursor-pointer transition-colors flex items-center gap-1"
+          class="mt-6 text-sm text-gray-400 hover:text-gray-600 cursor-pointer transition-colors flex items-center gap-1.5"
         >
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
           </svg>
           Retour
@@ -461,10 +461,10 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
             </svg>
           </div>
-          <h3 class="text-lg font-bold text-gray-900 mb-2">{endNode.data.title}</h3>
-          <p class="text-sm text-gray-600 mb-4">{endNode.data.message}</p>
-          <div class="bg-green-50 border border-green-200 rounded-lg p-3 text-xs text-green-700">
-            Vos donnees ont ete enregistrees. Nous vous contacterons sous 24h.
+          <h3 class="text-xl font-bold text-gray-900 mb-3">{endNode.data.title}</h3>
+          <p class="text-base text-gray-600 mb-5">{endNode.data.message}</p>
+          <div class="bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-700">
+            Vos données ont été enregistrées. Nous vous contacterons sous 24h.
           </div>
         </div>
 
