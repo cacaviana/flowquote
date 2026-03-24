@@ -7,6 +7,7 @@
   const service = new FlowsService();
   let flows = $state<Flow[]>([]);
   let loading = $state(true);
+  let creatingScheduling = $state(false);
 
   onMount(async () => {
     try {
@@ -21,6 +22,49 @@
   const firstPublished = $derived(flows.find(f => f.status === 'published'));
   const firstFlow = $derived(flows[0]);
   const demoSlug = $derived(firstPublished?.slug || firstFlow?.slug);
+
+  async function createSchedulingFlow() {
+    creatingScheduling = true;
+    try {
+      // Create a pre-built scheduling flow with qualifying questions
+      const res = await fetch('/api/flows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Agendamento IT Valley',
+          slug: `agendamento-${Date.now()}`,
+          status: 'draft',
+          collect_fields: { name: true, email: true, phone: true, address: false },
+          nodes: [
+            { id: 'start-1', type: 'start', position: { x: 250, y: 0 }, data: { label: 'Inicio', collect_fields: { name: true, email: true, phone: true, address: false } } },
+            { id: 'q-area', type: 'question', position: { x: 250, y: 150 }, data: { label: 'Area de atuacao', question: 'Qual a sua area de atuacao?', type: 'single_choice', options: ['TI / Tecnologia', 'Marketing Digital', 'Engenharia', 'Saude', 'Financeiro', 'Outro'], required: true } },
+            { id: 'q-experiencia', type: 'question', position: { x: 250, y: 320 }, data: { label: 'Experiencia', question: 'Qual o seu nivel de experiencia com tecnologia?', type: 'single_choice', options: ['Iniciante - Estou comecando', 'Intermediario - Ja trabalho na area', 'Avancado - Tenho bastante experiencia'], required: true } },
+            { id: 'q-salario', type: 'question', position: { x: 250, y: 490 }, data: { label: 'Faixa salarial', question: 'Qual a sua faixa salarial atual?', type: 'single_choice', options: ['Ate R$ 3.000', 'R$ 3.000 - R$ 5.000', 'R$ 5.000 - R$ 10.000', 'R$ 10.000 - R$ 20.000', 'Acima de R$ 20.000'], required: true } },
+            { id: 'q-objetivo', type: 'question', position: { x: 250, y: 660 }, data: { label: 'Objetivo', question: 'Qual o seu principal objetivo?', type: 'single_choice', options: ['Mudar de carreira para TI', 'Crescer na carreira atual', 'Lancar meu proprio negocio', 'Aumentar minha renda', 'Aprender por curiosidade'], required: true } },
+            { id: 'q-investir', type: 'question', position: { x: 250, y: 830 }, data: { label: 'Pode investir?', question: 'Voce pode investir R$ 300/mes na sua evolucao profissional?', type: 'yes_no', required: true } },
+            { id: 'end-schedule', type: 'end', position: { x: 250, y: 1000 }, data: { label: 'Agendar reuniao', endType: 'scheduling', message: 'Otimo! Escolha o melhor dia e horario para conversarmos.' } },
+          ],
+          edges: [
+            { id: 'e-start-area', source: 'start-1', target: 'q-area' },
+            { id: 'e-area-exp', source: 'q-area', target: 'q-experiencia' },
+            { id: 'e-exp-sal', source: 'q-experiencia', target: 'q-salario' },
+            { id: 'e-sal-obj', source: 'q-salario', target: 'q-objetivo' },
+            { id: 'e-obj-inv', source: 'q-objetivo', target: 'q-investir' },
+            { id: 'e-inv-end', source: 'q-investir', target: 'end-schedule' },
+          ]
+        })
+      });
+
+      if (res.ok) {
+        const created = await res.json();
+        goto(`/admin/flows/${created.id || created._id}/edit`);
+      }
+    } catch (e) {
+      console.error('Error creating scheduling flow:', e);
+    } finally {
+      creatingScheduling = false;
+    }
+  }
 </script>
 
 <div class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
@@ -28,21 +72,40 @@
     <h1 class="text-4xl font-bold text-gray-900 mb-2">FlowQuote</h1>
     <p class="text-gray-600 mb-8">Construtor Visual de Orçamentos com IA</p>
 
-    <div class="flex gap-4 justify-center">
-      <button
-        onclick={() => goto('/admin/flows')}
-        class="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors cursor-pointer"
-      >
-        Painel Admin
-      </button>
-      {#if !loading && demoSlug}
+    <div class="flex flex-col items-center gap-4">
+      <div class="flex gap-4 justify-center">
         <button
-          onclick={() => goto(`/q/${demoSlug}`)}
-          class="bg-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-purple-700 transition-colors cursor-pointer"
+          onclick={() => goto('/admin/flows')}
+          class="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors cursor-pointer"
         >
-          Ver Questionário Demo
+          Painel Admin
         </button>
-      {/if}
+        {#if !loading && demoSlug}
+          <button
+            onclick={() => goto(`/q/${demoSlug}`)}
+            class="bg-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-purple-700 transition-colors cursor-pointer"
+          >
+            Ver Questionário Demo
+          </button>
+        {/if}
+      </div>
+
+      <!-- Modo Agendamento -->
+      <button
+        onclick={createSchedulingFlow}
+        disabled={creatingScheduling}
+        class="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-8 py-3.5 rounded-xl font-semibold hover:from-green-600 hover:to-emerald-700 transition-all cursor-pointer shadow-lg shadow-green-500/25 flex items-center gap-2.5 disabled:opacity-50"
+      >
+        {#if creatingScheduling}
+          <span class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+          Criando...
+        {:else}
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+          </svg>
+          Modo Agendamento
+        {/if}
+      </button>
     </div>
   </div>
 </div>
