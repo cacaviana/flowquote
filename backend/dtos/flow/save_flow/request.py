@@ -3,6 +3,7 @@ from typing import Optional
 
 
 class SaveFlowRequest(BaseModel):
+    module: Optional[str] = Field(default="devis")
     name: str = Field(..., min_length=1)
     slug: Optional[str] = None
     nodes: list[dict] = Field(..., min_length=1)

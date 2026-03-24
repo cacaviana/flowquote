@@ -21,7 +21,7 @@
   import { createFlowBuilderStore } from '$lib/stores/flowBuilder.svelte';
   import { FlowsService } from '$lib/services/flows.service';
   import { SaveFlowRequest } from '$lib/dto/flows/requests';
-  import type { NodeType } from '$lib/dto/flows/types';
+  import type { NodeType, FlowModule } from '$lib/dto/flows/types';
 
   const store = createFlowBuilderStore();
   const service = new FlowsService();
@@ -162,7 +162,11 @@ Subvention Roulez Vert (Level 2),-600,unidade,rabais`;
         return;
       }
     }
-    // New flow — add start node
+    // New flow — read module from query param
+    const urlModule = new URLSearchParams(window.location.search).get('module');
+    if (urlModule === 'devis' || urlModule === 'agendamento') {
+      store.flowModule = urlModule as FlowModule;
+    }
     store.addNode('start', { x: 300, y: 50 });
     store.hasChanges = false;
   });
@@ -198,15 +202,18 @@ Subvention Roulez Vert (Level 2),-600,unidade,rabais`;
       const flowData = store.getFlowData();
       const dto = new SaveFlowRequest({
         _id: store.flowId,
+        module: store.flowModule,
         name: store.flowName,
         nodes: flowData.nodes,
         edges: flowData.edges,
         status: 'draft',
-        pricing_csv: store.pricingCsv
+        pricing_csv: store.flowModule === 'devis' ? store.pricingCsv : undefined
       });
       const saved = await service.save(dto);
       if (saved?._id && !store.flowId) {
         store.flowId = saved._id;
+        // Update URL to reflect the real ID (replaceState so no extra history entry)
+        history.replaceState({}, '', `/admin/flows/${saved._id}/edit`);
       }
       store.hasChanges = false;
       toast = 'Salvo!';
@@ -244,17 +251,23 @@ Subvention Roulez Vert (Level 2),-600,unidade,rabais`;
       {#if store.hasChanges}
         <span class="w-2 h-2 rounded-full bg-yellow-400" title="Alterações não salvas"></span>
       {/if}
-      <button
-        onclick={openCsvModal}
-        class="text-xs font-medium {store.pricingCsv ? 'text-green-700 bg-green-50 hover:bg-green-100' : 'text-gray-600 bg-gray-100 hover:text-orange-600 hover:bg-orange-50'} rounded-md px-3 py-1.5 cursor-pointer transition-colors flex items-center gap-1"
-        data-testid="btn-csv-upload"
-        title="Enviar tabela de precos (CSV)"
-      >
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-        </svg>
-        {store.pricingCsv ? 'CSV carregado' : 'Preços (CSV)'}
-      </button>
+      <!-- Module badge -->
+      <span class="text-xs font-medium px-2 py-1 rounded-full {store.flowModule === 'agendamento' ? 'bg-teal-100 text-teal-700' : 'bg-blue-100 text-blue-700'}">
+        {store.flowModule === 'agendamento' ? 'Agendamento' : 'Devis'}
+      </span>
+      {#if store.flowModule === 'devis'}
+        <button
+          onclick={openCsvModal}
+          class="text-xs font-medium {store.pricingCsv ? 'text-green-700 bg-green-50 hover:bg-green-100' : 'text-gray-600 bg-gray-100 hover:text-orange-600 hover:bg-orange-50'} rounded-md px-3 py-1.5 cursor-pointer transition-colors flex items-center gap-1"
+          data-testid="btn-csv-upload"
+          title="Enviar tabela de precos (CSV)"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+          </svg>
+          {store.pricingCsv ? 'CSV carregado' : 'Preços (CSV)'}
+        </button>
+      {/if}
       <button
         onclick={openAgentModal}
         class="text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md px-3 py-1.5 cursor-pointer transition-colors flex items-center gap-1"
@@ -320,6 +333,7 @@ Subvention Roulez Vert (Level 2),-600,unidade,rabais`;
         onDelete={() => store.removeNode(selectedNode.id)}
         onClose={() => store.selectedNodeId = null}
         {catalogItems}
+        module={store.flowModule}
       />
     {/if}
   </div>

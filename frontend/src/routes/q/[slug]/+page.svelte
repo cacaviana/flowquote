@@ -106,9 +106,11 @@
         if (edge) { currentNodeId = edge.target; processCurrentNode(); }
       }, 1800);
     } else if (currentNode.type === 'question') {
-      const opts = currentNode.data.questionType === 'yes_no'
+      const qt = currentNode.data.questionType;
+      const hasOpts = qt === 'yes_no' || ((qt === 'single_choice' || qt === 'multiple_choice' || qt === 'dropdown') && currentNode.data.options?.length);
+      const opts = qt === 'yes_no'
         ? [{ label: 'Sim', value: 'Sim', id: 'yes' }, { label: 'Não', value: 'Não', id: 'no' }]
-        : currentNode.data.questionType === 'single_choice' && currentNode.data.options
+        : hasOpts && currentNode.data.options
           ? currentNode.data.options.map((o: { label: string; value: string; id: string }) => ({ label: o.label, value: o.value, id: o.id }))
           : undefined;
       await pushBotMsg(currentNode.data.title, opts, currentNode.data.questionType);
@@ -136,14 +138,21 @@
     if (!nextEdge) nextEdge = flow!.edges.find(e => e.source === currentNodeId);
     if (nextEdge) {
       setTimeout(() => { currentNodeId = nextEdge!.target; processCurrentNode(); }, 400);
+    } else {
+      // Dead-end: sem edge de saída — finalizar fluxo
+      setTimeout(async () => {
+        await pushBotMsg('Obrigado pelas respostas! Vamos processar suas informações.');
+        phase = 'end';
+        submitToBackend();
+      }, 400);
     }
   }
 
   async function submitTextAnswer() {
-    if (!inputValue.trim() || !currentNode) return;
-    const val = inputValue.trim();
+    const strVal = String(inputValue).trim();
+    if (!strVal || !currentNode) return;
     inputValue = '';
-    await selectAnswer(val);
+    await selectAnswer(strVal);
   }
 
   async function loadBookingDays() {
@@ -364,19 +373,19 @@
       {/if}
     </div>
 
-    <!-- Input bar (para perguntas de texto/número) -->
-    {#if waitingForInput && currentNode && !currentNode.data.options && currentNode.data.questionType !== 'yes_no' && currentNode.data.questionType !== 'single_choice'}
+    <!-- Input bar (para perguntas de texto/número/data/rating/photo) -->
+    {#if waitingForInput && currentNode && !(currentNode.data.questionType === 'yes_no' || currentNode.data.questionType === 'single_choice' || currentNode.data.questionType === 'multiple_choice' || currentNode.data.questionType === 'dropdown')}
       <div class="sticky bottom-0 bg-white border-t border-gray-100 px-4 py-3 flex gap-2 no-print">
         <input
           type={currentNode.data.questionType === 'number' ? 'number' : 'text'}
           bind:value={inputValue}
           placeholder="Digite sua resposta..."
           class="flex-1 bg-gray-100 rounded-full px-4 py-2.5 text-sm text-gray-900 outline-none placeholder-gray-400"
-          onkeydown={(e) => { if (e.key === 'Enter' && inputValue.trim()) submitTextAnswer(); }}
+          onkeydown={(e) => { if (e.key === 'Enter' && String(inputValue).trim()) submitTextAnswer(); }}
         />
         <button
           onclick={submitTextAnswer}
-          disabled={!inputValue.trim()}
+          disabled={!String(inputValue).trim()}
           class="w-10 h-10 bg-gray-900 rounded-full flex items-center justify-center disabled:opacity-30 cursor-pointer transition-colors hover:bg-gray-700 shrink-0"
         >
           <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">

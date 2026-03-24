@@ -58,3 +58,15 @@ async def delete_flow(flow_id: str):
     deleted = await _service.delete(flow_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Flow nao encontrado")
+
+
+@router.post("/migrate/add-module")
+async def migrate_add_module():
+    """Migra flows existentes adicionando module='devis' onde ausente."""
+    from data.repositories.mongo.flow_repository import FlowRepository
+    repo = FlowRepository()
+    result = await repo._collection.update_many(
+        {"module": {"$exists": False}},
+        {"$set": {"module": "devis"}}
+    )
+    return {"modified_count": result.modified_count}

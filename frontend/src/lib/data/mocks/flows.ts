@@ -4,6 +4,7 @@ export const flowsMock: Flow[] = [
   {
     _id: 'flow_1',
     tenant_id: 'tenant_1',
+    module: 'devis',
     name: 'Devis Installation Borne',
     slug: 'total-electrique-borne',
     status: 'published',

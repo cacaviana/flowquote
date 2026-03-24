@@ -1,12 +1,13 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { FlowsService } from '$lib/services/flows.service';
-  import type { Flow } from '$lib/dto/flows/types';
+  import type { Flow, FlowModule } from '$lib/dto/flows/types';
   import { onMount } from 'svelte';
 
   const service = new FlowsService();
   let flows = $state<Flow[]>([]);
   let loading = $state(true);
+  let showModuleModal = $state(false);
 
   onMount(async () => {
     flows = await service.list();
@@ -14,7 +15,12 @@
   });
 
   function createNew() {
-    goto('/admin/flows/new/edit');
+    showModuleModal = true;
+  }
+
+  function selectModule(mod: FlowModule) {
+    showModuleModal = false;
+    goto(`/admin/flows/new/edit?module=${mod}`);
   }
 
   const statusColors: Record<string, string> = {
@@ -27,6 +33,16 @@
     draft: 'Rascunho',
     published: 'Publicado',
     archived: 'Arquivado'
+  };
+
+  const moduleColors: Record<string, string> = {
+    devis: 'bg-blue-100 text-blue-700',
+    agendamento: 'bg-teal-100 text-teal-700'
+  };
+
+  const moduleLabels: Record<string, string> = {
+    devis: 'Devis',
+    agendamento: 'Agendamento'
   };
 </script>
 
@@ -107,9 +123,14 @@
             >
               <div class="flex justify-between items-start mb-2">
                 <h3 class="font-semibold text-gray-900">{flow.name}</h3>
-                <span class="text-xs px-2 py-0.5 rounded-full {statusColors[flow.status]}">
-                  {statusLabels[flow.status] || flow.status}
-                </span>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs px-2 py-0.5 rounded-full {moduleColors[flow.module || 'devis']}">
+                    {moduleLabels[flow.module || 'devis']}
+                  </span>
+                  <span class="text-xs px-2 py-0.5 rounded-full {statusColors[flow.status]}">
+                    {statusLabels[flow.status] || flow.status}
+                  </span>
+                </div>
               </div>
               <p class="text-sm text-gray-500 mb-1">/q/{flow.slug}</p>
               <div class="text-xs text-gray-400">
@@ -158,3 +179,56 @@
     {/if}
   </main>
 </div>
+
+<!-- Modal: Escolher módulo -->
+{#if showModuleModal}
+  <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full">
+      <div class="px-6 py-4 border-b flex items-center justify-between">
+        <h2 class="text-base font-bold text-gray-900">Novo Fluxo</h2>
+        <button onclick={() => showModuleModal = false} class="text-gray-400 hover:text-gray-600 cursor-pointer p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="p-6 space-y-3">
+        <p class="text-sm text-gray-500 mb-4">Escolha o tipo de fluxo que deseja criar:</p>
+
+        <button
+          onclick={() => selectModule('devis')}
+          class="w-full text-left p-4 rounded-lg border-2 border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all cursor-pointer group"
+        >
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+              <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-semibold text-gray-900 group-hover:text-blue-700">Devis (Orçamento)</h3>
+              <p class="text-xs text-gray-500 mt-0.5">Questionário com geração de orçamento por IA. Template tradicional com cards.</p>
+            </div>
+          </div>
+        </button>
+
+        <button
+          onclick={() => selectModule('agendamento')}
+          class="w-full text-left p-4 rounded-lg border-2 border-gray-200 hover:border-teal-500 hover:bg-teal-50 transition-all cursor-pointer group"
+        >
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
+              <svg class="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-semibold text-gray-900 group-hover:text-teal-700">Agendamento</h3>
+              <p class="text-xs text-gray-500 mt-0.5">Questionário estilo chat com agendamento de reunião. Sem catálogo de produtos.</p>
+            </div>
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}

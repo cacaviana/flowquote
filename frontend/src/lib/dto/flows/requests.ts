@@ -1,7 +1,8 @@
-import type { FlowNode, FlowEdge } from './types';
+import type { FlowNode, FlowEdge, FlowModule } from './types';
 
 export class SaveFlowRequest {
   private _id: string | null;
+  private module: FlowModule;
   private name: string;
   private slug: string;
   private nodes: FlowNode[];
@@ -9,8 +10,9 @@ export class SaveFlowRequest {
   private status: string;
   private pricing_csv: string;
 
-  constructor(data: { _id?: string | null; name: string; slug?: string; nodes: FlowNode[]; edges: FlowEdge[]; status?: string; pricing_csv?: string }) {
+  constructor(data: { _id?: string | null; module?: FlowModule; name: string; slug?: string; nodes: FlowNode[]; edges: FlowEdge[]; status?: string; pricing_csv?: string }) {
     this._id = data._id || null;
+    this.module = data.module || 'devis';
     this.name = data.name || '';
     this.slug = data.slug || data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     this.nodes = data.nodes || [];
@@ -26,6 +28,7 @@ export class SaveFlowRequest {
 
   toPayload(): Record<string, unknown> {
     const payload: Record<string, unknown> = {
+      module: this.module,
       name: this.name,
       slug: this.slug,
       nodes: this.nodes,
@@ -39,4 +42,5 @@ export class SaveFlowRequest {
 
   getName() { return this.name; }
   getSlug() { return this.slug; }
+  getModule() { return this.module; }
 }

@@ -9,6 +9,7 @@ class FlowMapper:
         return {
             "_id": str(doc["_id"]),
             "tenant_id": doc.get("tenant_id", ""),
+            "module": doc.get("module", "devis"),
             "name": doc.get("name", ""),
             "slug": doc.get("slug", ""),
             "status": doc.get("status", "draft"),
@@ -25,6 +26,7 @@ class FlowMapper:
         return {
             "_id": str(doc["_id"]),
             "tenant_id": doc.get("tenant_id", ""),
+            "module": doc.get("module", "devis"),
             "name": doc.get("name", ""),
             "slug": doc.get("slug", ""),
             "status": doc.get("status", "draft"),

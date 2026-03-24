@@ -1,14 +1,17 @@
 <script lang="ts">
   import type { Node } from '@xyflow/svelte';
-  import type { FlowNodeData, QuestionType, FlowOption } from '$lib/dto/flows/types';
+  import type { FlowNodeData, QuestionType, FlowOption, FlowModule } from '$lib/dto/flows/types';
 
-  let { node, onUpdate, onDelete, onClose, catalogItems = [] } = $props<{
+  let { node, onUpdate, onDelete, onClose, catalogItems = [], module = 'devis' } = $props<{
     node: Node;
     onUpdate: (data: Partial<FlowNodeData>) => void;
     onDelete: () => void;
     onClose: () => void;
-    catalogItems?: string[]; // Nomes dos produtos do CSV carregado
+    catalogItems?: string[];
+    module?: FlowModule;
   }>();
+
+  const isDevis = $derived(module === 'devis');
 
   let data = $derived(node.data as FlowNodeData);
 
@@ -24,12 +27,14 @@
     { value: 'photo', label: 'Envio de foto', hint: 'Cliente envia foto (local, equipamento)' }
   ];
 
-  const endTypes = [
-    { value: 'quote', label: 'Gerar orçamento (IA)' },
-    { value: 'booking', label: 'Agendamento de reunião' },
-    { value: 'specialist', label: 'Contato especialista' },
-    { value: 'thank_you', label: 'Agradecimento' }
+  const allEndTypes = [
+    { value: 'quote', label: 'Gerar orçamento (IA)', modules: ['devis'] },
+    { value: 'booking', label: 'Agendamento de reunião', modules: ['agendamento'] },
+    { value: 'specialist', label: 'Contato especialista', modules: ['devis', 'agendamento'] },
+    { value: 'thank_you', label: 'Agradecimento', modules: ['devis', 'agendamento'] }
   ];
+
+  const endTypes = $derived(allEndTypes.filter(et => et.modules.includes(module)));
 
   // Which question types have individual option handles (branching)
   const branchingTypes: QuestionType[] = ['single_choice', 'yes_no', 'multiple_choice', 'dropdown'];
@@ -148,8 +153,8 @@
             <p class="text-xs text-blue-500 mb-2">Cada opção cria uma saída — conecte ao próximo nó desejado</p>
           {/if}
 
-          <!-- Aviso se CSV carregado mas alguma opção sem produto vinculado -->
-          {#if catalogItems.length > 0}
+          <!-- Aviso se CSV carregado mas alguma opção sem produto vinculado (só devis) -->
+          {#if isDevis && catalogItems.length > 0}
             {@const semProduto = (data.options || []).filter(o => !o.catalogProduct)}
             {#if semProduto.length > 0}
               <div class="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2 flex gap-2 items-start">
@@ -183,8 +188,8 @@
                   </button>
                 </div>
 
-                <!-- Produto no catálogo (só aparece se CSV foi carregado) -->
-                {#if catalogItems.length > 0}
+                <!-- Produto no catálogo (só devis + CSV carregado) -->
+                {#if isDevis && catalogItems.length > 0}
                   <div class="flex items-center gap-1.5">
                     {#if opt.catalogProduct}
                       <svg class="w-3 h-3 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -226,7 +231,7 @@
             {/each}
           </div>
 
-          {#if catalogItems.length === 0}
+          {#if isDevis && catalogItems.length === 0}
             <p class="text-xs text-gray-400 mt-1.5">Carregue um CSV de preços para vincular cada opção a um produto do catálogo.</p>
           {/if}
         </div>

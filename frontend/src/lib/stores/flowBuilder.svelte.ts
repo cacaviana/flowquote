@@ -1,4 +1,4 @@
-import type { FlowNode, FlowEdge, NodeType, FlowNodeData } from '$lib/dto/flows/types';
+import type { FlowNode, FlowEdge, NodeType, FlowNodeData, FlowModule } from '$lib/dto/flows/types';
 import type { Node, Edge } from '@xyflow/svelte';
 
 function generateId() {
@@ -58,13 +58,15 @@ export function createFlowBuilderStore() {
   let edges = $state.raw<Edge[]>([]);
   let flowName = $state('Novo Fluxo');
   let flowId = $state<string | null>(null);
+  let flowModule = $state<FlowModule>('devis');
   let pricingCsv = $state('');
   let selectedNodeId = $state<string | null>(null);
   let hasChanges = $state(false);
 
-  function loadFlow(flow: { _id?: string; name: string; nodes: FlowNode[]; edges: FlowEdge[]; pricing_csv?: string }) {
+  function loadFlow(flow: { _id?: string; name: string; module?: FlowModule; nodes: FlowNode[]; edges: FlowEdge[]; pricing_csv?: string }) {
     flowId = flow._id || null;
     flowName = flow.name;
+    flowModule = flow.module || 'devis';
     pricingCsv = flow.pricing_csv || '';
     nodes = toSvelteFlowNodes(flow.nodes);
     edges = toSvelteFlowEdges(flow.edges);
@@ -139,6 +141,8 @@ export function createFlowBuilderStore() {
     set flowName(v: string) { flowName = v; hasChanges = true; },
     get flowId() { return flowId; },
     set flowId(v: string | null) { flowId = v; },
+    get flowModule() { return flowModule; },
+    set flowModule(v: FlowModule) { flowModule = v; },
     get pricingCsv() { return pricingCsv; },
     set pricingCsv(v: string) { pricingCsv = v; hasChanges = true; },
     get selectedNodeId() { return selectedNodeId; },

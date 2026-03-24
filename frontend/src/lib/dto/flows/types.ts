@@ -1,3 +1,4 @@
+export type FlowModule = 'devis' | 'agendamento';
 export type NodeType = 'start' | 'question' | 'message' | 'end';
 
 export type QuestionType =
@@ -36,7 +37,7 @@ export interface FlowNodeData {
   message?: string;
   isSpecialist?: boolean;
   // End node
-  endType?: 'quote' | 'specialist' | 'thank_you';
+  endType?: 'quote' | 'booking' | 'specialist' | 'thank_you';
   businessContext?: string;
   aiInstruction?: string;
   outputFormat?: 'pdf' | 'txt' | 'both';
@@ -60,6 +61,7 @@ export interface FlowEdge {
 export interface Flow {
   _id?: string;
   tenant_id: string;
+  module: FlowModule;
   name: string;
   slug: string;
   status: 'draft' | 'published' | 'archived';

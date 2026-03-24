@@ -26,21 +26,37 @@ class FlowFactory:
         return datetime.now(timezone.utc).isoformat()
 
     @classmethod
-    def create_new(cls, data: dict) -> dict:
-        nodes = data.get("nodes", [])
-
+    def _validate_common(cls, nodes: list) -> None:
         if len(nodes) > cls.MAX_NODES:
             raise ValueError(f"Flow nao pode ter mais de {cls.MAX_NODES} nos")
-
         has_start = any(n.get("type") == "start" for n in nodes)
         if not has_start:
             raise ValueError("Flow precisa ter pelo menos um no de inicio (start)")
+
+    @classmethod
+    def _validate_module(cls, module: str, nodes: list, has_csv: bool) -> None:
+        """Validacoes especificas por modulo."""
+        end_nodes = [n for n in nodes if n.get("type") == "end"]
+        if module == "agendamento":
+            for en in end_nodes:
+                et = en.get("data", {}).get("endType", "")
+                if et == "quote":
+                    raise ValueError("Modulo agendamento nao suporta endType 'quote'. Use 'booking' ou 'specialist'.")
+
+    @classmethod
+    def create_new(cls, data: dict) -> dict:
+        nodes = data.get("nodes", [])
+        module = data.get("module", "devis")
+
+        cls._validate_common(nodes)
+        cls._validate_module(module, nodes, bool(data.get("pricing_csv")))
 
         now = cls._now_iso()
         slug = data.get("slug") or cls._generate_slug(data["name"])
 
         doc = {
             "tenant_id": data.get("tenant_id", "tenant_1"),
+            "module": module,
             "name": data["name"],
             "slug": slug,
             "status": data.get("status", "draft"),
@@ -50,24 +66,23 @@ class FlowFactory:
             "created_at": now,
             "updated_at": now,
         }
-        if data.get("pricing_csv") is not None:
+        # pricing_csv so faz sentido no modulo devis
+        if module == "devis" and data.get("pricing_csv") is not None:
             doc["pricing_csv"] = data["pricing_csv"]
         return doc
 
     @classmethod
     def create_update(cls, existing: dict, data: dict) -> dict:
         nodes = data.get("nodes", existing.get("nodes", []))
+        module = data.get("module", existing.get("module", "devis"))
 
-        if len(nodes) > cls.MAX_NODES:
-            raise ValueError(f"Flow nao pode ter mais de {cls.MAX_NODES} nos")
-
-        has_start = any(n.get("type") == "start" for n in nodes)
-        if not has_start:
-            raise ValueError("Flow precisa ter pelo menos um no de inicio (start)")
+        cls._validate_common(nodes)
+        cls._validate_module(module, nodes, bool(data.get("pricing_csv") or existing.get("pricing_csv")))
 
         slug = data.get("slug") or cls._generate_slug(data["name"])
 
         update_doc = {
+            "module": module,
             "name": data["name"],
             "slug": slug,
             "status": data.get("status", existing.get("status", "draft")),
@@ -76,9 +91,10 @@ class FlowFactory:
             "edges": data.get("edges", existing.get("edges", [])),
             "updated_at": cls._now_iso(),
         }
-        # Preserve or update pricing_csv
-        if data.get("pricing_csv") is not None:
-            update_doc["pricing_csv"] = data["pricing_csv"]
-        elif existing.get("pricing_csv"):
-            update_doc["pricing_csv"] = existing["pricing_csv"]
+        # pricing_csv so faz sentido no modulo devis
+        if module == "devis":
+            if data.get("pricing_csv") is not None:
+                update_doc["pricing_csv"] = data["pricing_csv"]
+            elif existing.get("pricing_csv"):
+                update_doc["pricing_csv"] = existing["pricing_csv"]
         return update_doc
