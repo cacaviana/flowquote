@@ -68,45 +68,54 @@
   }
 </script>
 
-<div class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
-  <div class="text-center max-w-lg">
-    <h1 class="text-4xl font-bold text-gray-900 mb-2">FlowQuote</h1>
-    <p class="text-gray-600 mb-8">Construtor Visual de Orçamentos com IA</p>
+<div class="min-h-screen flex items-center justify-center" style="background: linear-gradient(135deg, #0D2033 0%, #173650 100%);">
+  <div class="text-center max-w-lg px-6">
+    <!-- Logo -->
+    <p class="text-[10px] font-medium tracking-[0.45em] uppercase text-petra-light mb-5 opacity-80">Powered by Petra IA</p>
+    <h1 class="text-5xl font-light tracking-tight text-white mb-3">
+      Flow<span class="font-semibold bg-gradient-to-r from-petra-steel to-petra-light bg-clip-text text-transparent">Quote</span>
+    </h1>
+    <p class="text-base font-light text-petra-pale/70 mb-10">Constructeur visuel de devis avec IA</p>
 
     <div class="flex flex-col items-center gap-4">
-      <div class="flex gap-4 justify-center">
+      <div class="flex gap-3 justify-center">
         <button
           onclick={() => goto('/admin/flows')}
-          class="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors cursor-pointer"
+          class="px-6 py-3 rounded-full text-sm font-normal tracking-wide text-white cursor-pointer transition-all hover:-translate-y-0.5"
+          style="background: linear-gradient(135deg, #173650 0%, #265A87 55%, #3578B0 100%); box-shadow: 0 4px 24px rgba(37,90,135,0.22);"
         >
-          Painel Admin
+          Panneau Admin
         </button>
         {#if !loading && demoSlug}
           <button
             onclick={() => goto(`/q/${demoSlug}`)}
-            class="bg-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-purple-700 transition-colors cursor-pointer"
+            class="px-6 py-3 rounded-full text-sm font-normal tracking-wide text-petra-pale cursor-pointer transition-all hover:-translate-y-0.5 hover:bg-white/5"
+            style="border: 1px solid rgba(165,200,228,0.32);"
           >
-            Ver Questionário Demo
+            Questionnaire Démo
           </button>
         {/if}
       </div>
 
-      <!-- Modo Agendamento -->
+      <!-- Scheduling Mode -->
       <button
         onclick={createSchedulingFlow}
         disabled={creatingScheduling}
-        class="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-8 py-3.5 rounded-xl font-semibold hover:from-green-600 hover:to-emerald-700 transition-all cursor-pointer shadow-lg shadow-green-500/25 flex items-center gap-2.5 disabled:opacity-50"
+        class="px-8 py-3.5 rounded-full text-sm font-normal tracking-wide cursor-pointer transition-all hover:-translate-y-0.5 disabled:opacity-40 flex items-center gap-2.5"
+        style="background: var(--color-surface-teal, #C8DDD7); color: #173650; border: 1px solid rgba(40,120,100,0.2); box-shadow: 0 4px 20px rgba(40,120,100,0.15);"
       >
         {#if creatingScheduling}
-          <span class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-          Criando...
+          <span class="w-5 h-5 border-2 border-petra-dark border-t-transparent rounded-full animate-spin"></span>
+          Création...
         {:else}
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
           </svg>
-          Modo Agendamento
+          Mode Rendez-vous
         {/if}
       </button>
     </div>
+
+    <p class="mt-12 text-[10px] font-light tracking-[0.12em] text-petra-light/40">PETRA IA &middot; Design System v2</p>
   </div>
 </div>
