@@ -13,7 +13,7 @@
     </div>
     <span class="font-semibold text-green-900 text-sm">{data.title}</span>
   </div>
-  <p class="text-xs text-green-600 mt-1.5 ml-9">Coleta nome, email, telefone</p>
+  <p class="text-xs text-green-600 mt-1.5 ml-9">Collecte nom, email, téléphone</p>
   <Handle type="source" position={Position.Bottom} class="!bg-green-500 !w-3 !h-3 !border-2 !border-white" />
 </div>
 

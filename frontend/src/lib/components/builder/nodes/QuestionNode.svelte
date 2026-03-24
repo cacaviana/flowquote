@@ -5,15 +5,15 @@
   let { data } = $props<{ data: FlowNodeData }>();
 
   const typeLabels: Record<string, string> = {
-    single_choice: 'Escolha única',
-    yes_no: 'Sim/Não',
-    number: 'Número',
-    text: 'Texto',
-    multiple_choice: 'Múltipla escolha',
-    date: 'Data',
-    rating: 'Escala',
-    dropdown: 'Lista',
-    photo: 'Foto'
+    single_choice: 'Choix unique',
+    yes_no: 'Oui/Non',
+    number: 'Nombre',
+    text: 'Texte',
+    multiple_choice: 'Choix multiple',
+    date: 'Date',
+    rating: 'Évaluation',
+    dropdown: 'Liste',
+    photo: 'Photo'
   };
 
   // Show individual option handles only for choice types with few options (branching)
@@ -73,7 +73,7 @@
   {:else if showCompactOptions}
     <!-- Many options — compact summary + single handle -->
     <div class="mt-2 ml-9">
-      <div class="text-xs text-blue-400">{optionCount} opções: {(data.options || []).slice(0, 3).map(o => o.label).join(', ')}...</div>
+      <div class="text-xs text-blue-400">{optionCount} options : {(data.options || []).slice(0, 3).map(o => o.label).join(', ')}...</div>
     </div>
     <Handle type="source" position={Position.Bottom} class="!bg-blue-500 !w-3 !h-3 !border-2 !border-white" />
 

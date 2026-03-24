@@ -5,10 +5,10 @@
   let { data } = $props<{ data: FlowNodeData }>();
 
   const endLabels: Record<string, string> = {
-    quote: 'Gera orçamento via IA',
-    specialist: 'Encaminha para contato',
-    thank_you: 'Mensagem de agradecimento',
-    scheduling: 'Agendamento no calendário'
+    quote: 'Génère un devis via IA',
+    specialist: 'Redirige vers un spécialiste',
+    thank_you: 'Message de remerciement',
+    scheduling: 'Rendez-vous (calendrier)'
   };
 </script>
 
