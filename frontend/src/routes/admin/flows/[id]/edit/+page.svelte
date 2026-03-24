@@ -76,24 +76,58 @@ Mise a niveau panneau 100A vers 200A,1800,unidade,upgrade
 Sous-panneau 100A,900,unidade,upgrade
 Subvention Roulez Vert (Level 2),-600,unidade,rabais`;
 
+  /**
+   * Normaliza número em qualquer formato para float válido.
+   * Aceita: 1099 | 1099.50 | 1099,50 | 1.099,50 | 1,099.50
+   */
+  function normalizeNumber(val: string): string {
+    val = val.trim();
+    if (!val) return '0';
+
+    const hasComma = val.includes(',');
+    const hasDot = val.includes('.');
+
+    if (hasComma && hasDot) {
+      // 1.099,50 (BR/FR) or 1,099.50 (US)
+      const lastComma = val.lastIndexOf(',');
+      const lastDot = val.lastIndexOf('.');
+      if (lastComma > lastDot) {
+        // 1.099,50 → comma is decimal
+        return val.replace(/\./g, '').replace(',', '.');
+      } else {
+        // 1,099.50 → dot is decimal
+        return val.replace(/,/g, '');
+      }
+    } else if (hasComma) {
+      // 1099,50 → comma is decimal
+      return val.replace(',', '.');
+    }
+    // 1099 or 1099.50 → already fine
+    return val;
+  }
+
   function parseCsv(text: string): { rows: string[][]; valid: boolean; error: string } {
     const lines = text.trim().split('\n').map(l => l.trim()).filter(l => l);
     if (lines.length < 2) return { rows: [], valid: false, error: 'Le CSV doit avoir au moins un en-tête et une ligne de données' };
 
-    const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+    // Auto-detect separator: ; or ,
+    const sep = lines[0].includes(';') ? ';' : ',';
+    const header = lines[0].split(sep).map(h => h.trim().toLowerCase());
     const requiredCols = ['produto', 'preco'];
     const missing = requiredCols.filter(c => !header.includes(c));
     if (missing.length > 0) return { rows: [], valid: false, error: `Colonnes manquantes: ${missing.join(', ')}. Format requis: produto,preco,unidade,categoria` };
 
-    const rows = lines.map(l => l.split(',').map(c => c.trim()));
+    const rows = lines.map(l => l.split(sep).map(c => c.trim()));
 
-    // Validate preco is numeric (skip header)
+    // Validate and normalize preco (skip header)
     const precoIdx = header.indexOf('preco');
     for (let i = 1; i < rows.length; i++) {
-      const val = rows[i][precoIdx];
-      if (val && isNaN(parseFloat(val))) {
-        return { rows: [], valid: false, error: `Ligne ${i + 1}: "${val}" n'est pas un prix valide` };
+      const raw = rows[i][precoIdx];
+      const normalized = normalizeNumber(raw);
+      if (raw && isNaN(parseFloat(normalized))) {
+        return { rows: [], valid: false, error: `Ligne ${i + 1}: "${raw}" n'est pas un prix valide` };
       }
+      rows[i][precoIdx] = normalized;
     }
 
     return { rows, valid: true, error: '' };
@@ -115,7 +149,8 @@ Subvention Roulez Vert (Level 2),-600,unidade,rabais`;
         return;
       }
       csvPreviewRows = rows;
-      store.pricingCsv = text;
+      // Normalize: convert ; separator to , for storage
+      store.pricingCsv = text.includes(';') ? text.replace(/;/g, ',') : text;
     };
     reader.readAsText(file);
   }
@@ -167,10 +202,19 @@ Subvention Roulez Vert (Level 2),-600,unidade,rabais`;
     store.hasChanges = false;
   });
 
+  let flowInstance: any = null;
+
   function handleAddNode(type: NodeType) {
-    // Place new node below the last one
-    const maxY = store.nodes.reduce((max, n) => Math.max(max, n.position.y), 0);
-    store.addNode(type, { x: 300, y: maxY + 180 });
+    // Place new node below the selected node, or below the last one
+    let refNode = selectedNode;
+    if (!refNode && store.nodes.length > 0) {
+      refNode = store.nodes.reduce((a, b) => a.position.y > b.position.y ? a : b);
+    }
+    const x = refNode ? refNode.position.x : 300;
+    const y = refNode ? refNode.position.y + 180 : 50;
+    store.addNode(type, { x, y });
+    // Fit view to show all nodes
+    setTimeout(() => flowInstance?.fitView({ duration: 300, padding: 0.2 }), 50);
   }
 
   function handleConnect(connection: Connection) {
@@ -303,6 +347,10 @@ Subvention Roulez Vert (Level 2),-600,unidade,rabais`;
         onconnect={handleConnect}
         onnodeclick={handleNodeClick}
         onpaneclick={handlePaneClick}
+        onnodesdelete={(nodes) => nodes.forEach(n => store.removeNode(n.id))}
+        onedgesdelete={(edges) => edges.forEach(e => store.removeEdge(e.id))}
+        oninit={(instance) => flowInstance = instance}
+        deleteKey={['Backspace', 'Delete']}
         fitView
         colorMode="light"
         connectionMode="loose"

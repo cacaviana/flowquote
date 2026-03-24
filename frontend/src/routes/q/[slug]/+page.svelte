@@ -16,7 +16,7 @@
   let phase = $state<'form' | 'questions' | 'end'>('form');
   let clientData = $state({ name: '', email: '', phone: '', address: '' });
   let currentNodeId = $state<string | null>(null);
-  let answers = $state<{ node_id: string; question: string; value: string }[]>([]);
+  let answers = $state<{ node_id: string; question: string; value: string; label?: string }[]>([]);
   let endNode = $state<FlowNode | null>(null);
   let submitting = $state(false);
   let inputValue = $state('');
@@ -130,12 +130,13 @@
     }
   }
 
-  function selectAnswer(value: string | number, handleId?: string) {
+  function selectAnswer(value: string | number, handleId?: string, label?: string) {
     if (!currentNode) return;
     answers = [...answers, {
       node_id: currentNode.id,
       question: currentNode.data.title,
-      value: String(value)
+      value: String(value),
+      label: label || String(value)
     }];
     let nextEdge: FlowEdge | undefined;
     if (handleId) {
@@ -265,7 +266,7 @@
             <div class="grid grid-cols-2 gap-2">
               {#each currentNode.data.options as opt}
                 <button
-                  onclick={() => selectAnswer(opt.value, opt.id)}
+                  onclick={() => selectAnswer(opt.value, opt.id, opt.label)}
                   class="border-2 border-gray-200 rounded-xl px-3 py-3.5 text-center text-sm font-medium hover:border-blue-500 hover:bg-blue-50 transition-all cursor-pointer"
                 >
                   {opt.label}

@@ -7,7 +7,6 @@ export type QuestionType =
   | 'text'
   | 'multiple_choice'
   | 'date'
-  | 'rating'
   | 'dropdown'
   | 'photo';
 
@@ -28,6 +27,8 @@ export interface FlowNodeData {
   imageUrl?: string;
   // For rating
   ratingMax?: number;
+  // For rating/number — associates the numeric answer as quantity for a catalog product
+  quantityProduct?: string;
   // For dropdown
   dropdownPlaceholder?: string;
   // Start node

@@ -15,13 +15,12 @@
   const questionTypes: { value: QuestionType; label: string; hint: string }[] = [
     { value: 'single_choice', label: 'Escolha única', hint: 'Cliente escolhe 1 opção (cada opção vira uma saída no fluxo)' },
     { value: 'yes_no', label: 'Sim / Não', hint: '2 saídas: Sim ou Não — ideal para bifurcações' },
-    { value: 'number', label: 'Número', hint: 'Campo numérico (distância, metragem, quantidade)' },
-    { value: 'text', label: 'Texto livre', hint: 'Campo aberto para observações' },
+    { value: 'number', label: 'Quantidade', hint: 'Campo numérico — vincule a um produto do CSV para calcular quantidade x preço' },
+    { value: 'text', label: 'Texto livre', hint: 'Campo aberto para observações (nunca vira item no orçamento)' },
     { value: 'multiple_choice', label: 'Múltipla escolha', hint: 'Cliente pode selecionar várias opções' },
-    { value: 'date', label: 'Data', hint: 'Seletor de data (visita, agendamento)' },
-    { value: 'rating', label: 'Escala (1-5)', hint: 'Avaliação numérica (urgência, satisfação)' },
+    { value: 'date', label: 'Data', hint: 'Seletor de data — nunca vira item no orçamento' },
     { value: 'dropdown', label: 'Lista suspensa', hint: 'Seletor dropdown para listas longas' },
-    { value: 'photo', label: 'Envio de foto', hint: 'Cliente envia foto (local, equipamento)' }
+    { value: 'photo', label: 'Envio de foto', hint: 'Cliente envia foto — nunca vira item no orçamento' }
   ];
 
   const endTypes = [
@@ -243,6 +242,49 @@
             oninput={(e) => onUpdate({ ratingMax: parseInt((e.target as HTMLInputElement).value) || 5 })}
             class="input"
           />
+        </div>
+      {/if}
+
+      <!-- Quantity product association (number) -->
+      {#if data.questionType === 'number' && catalogItems.length > 0}
+        <div>
+          <label class="label">Quantidade de qual produto?</label>
+          <p class="text-xs text-gray-400 mb-1.5">A resposta numérica será usada como quantidade deste produto no orçamento.</p>
+          <div class="flex items-center gap-1.5">
+            {#if data.quantityProduct}
+              <svg class="w-3 h-3 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+              </svg>
+            {:else}
+              <svg class="w-3 h-3 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+            {/if}
+            <input
+              list="catalog-qty-{node.id}"
+              type="text"
+              value={data.quantityProduct || ''}
+              oninput={(e) => onUpdate({ quantityProduct: (e.target as HTMLInputElement).value })}
+              class="input !py-1 text-xs flex-1 bg-white {data.quantityProduct ? 'border-green-300 text-green-800' : 'border-amber-200 text-gray-500'}"
+              placeholder="Vincular a produto do CSV..."
+            />
+            <datalist id="catalog-qty-{node.id}">
+              {#each catalogItems as item}
+                <option value={item} />
+              {/each}
+            </datalist>
+            {#if data.quantityProduct}
+              <button
+                onclick={() => onUpdate({ quantityProduct: '' })}
+                class="text-gray-300 hover:text-red-400 cursor-pointer flex-shrink-0"
+                title="Remover vínculo"
+              >
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            {/if}
+          </div>
         </div>
       {/if}
 

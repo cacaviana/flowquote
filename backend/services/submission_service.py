@@ -82,23 +82,59 @@ class SubmissionService:
 
 
 def _build_catalog_map(nodes: list) -> dict[str, str]:
-    """Constrói mapa { answer_value → catalogProduct } a partir dos nós do flow.
+    """Constrói mapa { node_id:answer_value → catalogProduct | __SKIP__ | __QTY__:product } a partir dos nós do flow.
 
-    Percorre todos os nós de pergunta com opções e, para cada opção que tem
-    catalogProduct definido pelo admin, registra a associação.
-    O match é feito pelo campo `value` da opção (o que é salvo nas respostas).
+    Usa node_id como prefixo da chave para evitar colisão quando opções de
+    perguntas diferentes usam o mesmo value (ex: "opcao_1" em várias perguntas).
+
+    Opções COM catalogProduct → mapeiam pro produto.
+    Opções SEM catalogProduct (ex: "não") → marcadas como __SKIP__.
+    Perguntas rating/number COM quantityProduct → marcadas como __QTY__:produto
+    (o valor numérico da resposta será a quantidade desse produto).
     """
     catalog_map: dict[str, str] = {}
     for node in nodes:
+        node_id = node.get("id", "")
         data = node.get("data", {})
+
+        # Perguntas text/date/photo — sempre contexto, nunca item
+        if data.get("questionType") in ("text", "date", "photo"):
+            catalog_map[f"{node_id}:__context__"] = "__CONTEXT__"
+            continue
+
+        # Perguntas number SEM quantityProduct — são informativas (ex: distância, metragem)
+        if data.get("questionType") == "number" and not data.get("quantityProduct", "").strip():
+            catalog_map[f"{node_id}:__context__"] = "__CONTEXT__"
+            continue
+
+        # Perguntas rating/number com quantityProduct associado
+        quantity_product = data.get("quantityProduct", "").strip()
+        if quantity_product and data.get("questionType") in ("rating", "number"):
+            catalog_map[f"{node_id}:__qty__"] = quantity_product
+            continue
+
+        # Perguntas yes_no — são de navegação/fluxo, respostas viram contexto
+        if data.get("questionType") == "yes_no":
+            catalog_map[f"{node_id}:__context__"] = "__CONTEXT__"
+            continue
+
         options = data.get("options", [])
+        # Se ALGUMA opção do node tem catalogProduct → modo explícito (sem catalog = __SKIP__)
+        # Se NENHUMA opção tem catalogProduct → modo auto-detect (deixa IA + CSV resolverem)
+        any_has_catalog = any(o.get("catalogProduct", "").strip() for o in options)
         for opt in options:
             catalog_product = opt.get("catalogProduct", "").strip()
             value = opt.get("value", "").strip()
-            if catalog_product and value:
-                catalog_map[value.lower()] = catalog_product
-            # Também indexa pelo label, para cobrir casos onde o frontend salva o label como value
             label = opt.get("label", "").strip()
-            if catalog_product and label and label.lower() not in catalog_map:
-                catalog_map[label.lower()] = catalog_product
+            if catalog_product and value:
+                catalog_map[f"{node_id}:{value.lower()}"] = catalog_product
+                if label:
+                    catalog_map[f"{node_id}:{label.lower()}"] = catalog_product
+            elif any_has_catalog and value:
+                # Modo explícito: opção sem produto → ignorar
+                catalog_map[f"{node_id}:{value.lower()}"] = "__SKIP__"
+                if label:
+                    catalog_map[f"{node_id}:{label.lower()}"] = "__SKIP__"
+            # Se nenhuma opção tem catalogProduct → não adiciona ao map
+            # Cai no auto-detect do quote_generator (match por nome no CSV)
     return catalog_map

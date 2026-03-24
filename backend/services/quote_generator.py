@@ -170,26 +170,25 @@ async def _get_model_name() -> str:
 
 
 _AGENT_INSTRUCTIONS = """## Papel
-Tu es un assistant de devis professionnel pour des entreprises de services.
+Tu es un assistant de devis professionnel. Tu generes des devis STRICTEMENT bases sur les produits confirmes.
 
-## Regras absolutas — precos
-- Utiliser UNIQUEMENT les prix du catalogue CSV. INTERDIT d'inventer ou approximer un prix.
-- INTERDIT d'ajouter subventions, rabais ou deductions absents du CSV.
-- Pour tout produit/metrage: prix unitaire CSV x quantite exacte du client.
-- INTERDIT de modifier la quantite donnee par le client.
+## REGRA PRINCIPAL
+- Inclure UNIQUEMENT les produits listés dans "PRODUTOS SELECIONADOS PELO CLIENTE".
+- INTERDIT d'ajouter des produits, subventions, rabais ou services supplementaires.
+- INTERDIT d'inventer ou suggerer des produits que le client n'a pas choisi.
+- Si aucun produit n'est selectionne: la liste d'items DOIT etre vide.
 
-## Regras absolutas — nomes de produtos
-- Si un produit client N'EXISTE PAS dans le catalogue: inclure avec la description EXACTE du client, prix 0, suffixe "(prix a consulter)".
-- INTERDIT de renommer ou substituer par un produit similaire du catalogue.
-- INTERDIT de changer "interieur/exterieur", "plafond/murale", "embutido/externo" ou toute variation de localisation.
-
-## Sugestoes complementares (opcional)
-- Tu PEUX ajouter des produits complementaires du catalogue non demandes par le client.
-- Ces produits supplementaires: quantite = 1 uniquement, jamais plus.
+## Precos
+- Utiliser UNIQUEMENT les prix indiques dans les produits confirmes. INTERDIT d'inventer un prix.
+- Respecter la quantite exacte indiquee.
 
 ## Calcul
 - TPS 5% + TVQ 9,975% sur le sous-total.
-- Montants en dollars canadiens."""
+- Montants en dollars canadiens.
+
+## Recommandations
+- Utiliser les informations complementaires du client pour personnaliser les recommandations (texte libre).
+- Les recommandations sont informatives SEULEMENT, jamais des items du devis."""
 
 _agent_cache: dict[str, Agent] = {}
 
@@ -223,43 +222,97 @@ def build_context(ctx: RunContext[QuoteDeps]) -> str:
     absent: list[str] = []      # produtos mapeados mas ausentes do CSV
     context_answers: list[str] = []  # respostas que são contexto, não produto
 
+    # Primeiro passo: coletar quantidades e adicionar produtos de quantidade como confirmados
+    quantity_overrides: dict[str, int] = {}  # produto_lower → quantidade
+    qty_products_added: set[str] = set()  # produtos já adicionados via quantidade
+    for answer in ctx.deps.answers:
+        node_id = answer.get("node_id", "")
+        qty_product = ctx.deps.catalog_map.get(f"{node_id}:__qty__", "")
+        if qty_product:
+            try:
+                qty = int(float(str(answer.get("value", "1"))))
+            except (ValueError, TypeError):
+                qty = 1
+            quantity_overrides[qty_product.lower()] = qty
+            qty_products_added.add(qty_product.lower())
+
+    # Segundo passo: classificar cada resposta
     for answer in ctx.deps.answers:
         value = str(answer.get("value", "")).strip()
-        question = answer.get("question", answer.get("node_id", "?"))
+        label = str(answer.get("label", value)).strip()
+        node_id = answer.get("node_id", "")
+        question = answer.get("question", node_id or "?")
 
-        # Prioridade 1: admin mapeou esta opção explicitamente
-        admin_product = ctx.deps.catalog_map.get(value.lower(), "")
+        # Perguntas de quantidade já foram processadas acima — pular
+        if ctx.deps.catalog_map.get(f"{node_id}:__qty__", ""):
+            continue
+
+        # Perguntas text/date/photo — forçar como contexto, nunca item
+        if ctx.deps.catalog_map.get(f"{node_id}:__context__", ""):
+            context_answers.append(f"  - {question}: {label}")
+            continue
+
+        # Prioridade 1: admin mapeou esta opção explicitamente (chave = node_id:value)
+        admin_product = ctx.deps.catalog_map.get(f"{node_id}:{value.lower()}", "")
+        if admin_product == "__SKIP__":
+            # Opção sem produto associado (ex: "não") — ignorar
+            continue
         if admin_product:
             if catalog:
                 match = _find_catalog_match(admin_product, catalog)
                 if match:
-                    confirmed.append(f"  - {admin_product} @ ${match['price']} (cliente escolheu \"{value}\")")
+                    qty = quantity_overrides.get(admin_product.lower(), 1)
+                    qty_str = f" x{qty}" if qty > 1 else ""
+                    total = match['price'] * qty
+                    confirmed.append(f"  - {admin_product}{qty_str} @ ${match['price']}/un = ${total} (cliente respondeu \"{label}\")")
                 else:
-                    absent.append(f"  - \"{value}\" → \"{admin_product}\" ausente do CSV → preco 0 + \"(prix a consulter)\"")
+                    absent.append(f"  - \"{admin_product}\" ausente do CSV → preco 0 + \"(prix a consulter)\"")
             else:
-                absent.append(f"  - \"{value}\" → \"{admin_product}\" (sem CSV carregado) → preco 0 + \"(prix a consulter)\"")
+                absent.append(f"  - \"{admin_product}\" (sem CSV carregado) → preco 0 + \"(prix a consulter)\"")
             continue
 
-        # Prioridade 2: auto-detecção por match exato
+        # Prioridade 2: auto-detecção por match exato do label ou value com o CSV
         if catalog:
             exact = next(
-                (p for p in catalog if p["name"] == value.lower() or p["name_original"] == value),
+                (p for p in catalog if p["name"] in (value.lower(), label.lower()) or p["name_original"] in (value, label)),
                 None,
             )
             if exact:
-                confirmed.append(f"  - {exact['name_original']} @ ${exact['price']} (auto-detectado de \"{value}\")")
+                qty = quantity_overrides.get(exact["name"], 1)
+                qty_str = f" x{qty}" if qty > 1 else ""
+                total = exact['price'] * qty
+                confirmed.append(f"  - {exact['name_original']}{qty_str} @ ${exact['price']}/un = ${total} (auto-detectado)")
                 continue
 
-        # Sem match → contexto puro
-        context_answers.append(f"  - {question}: {value}")
+        # Sem match → contexto puro (usa label legível, não o value técnico)
+        context_answers.append(f"  - {question}: {label}")
+
+    # Terceiro passo: adicionar produtos de quantidade que NÃO foram adicionados por single_choice
+    # (ex: Cablage par pied no flow Borne — só tem pergunta de quantidade, sem single_choice)
+    confirmed_products = {c.split(" @")[0].strip().lstrip("- ").split(" x")[0].lower() for c in confirmed}
+    for product_lower, qty in quantity_overrides.items():
+        if product_lower not in confirmed_products:
+            match = _find_catalog_match(product_lower, catalog)
+            if match:
+                total = match["price"] * qty
+                confirmed.append(f"  - {match['name_original']} x{qty} @ ${match['price']}/{match.get('unit','un')} = ${total} (quantidade informada pelo cliente)")
+            else:
+                absent.append(f"  - \"{product_lower}\" x{qty} ausente do CSV → preco 0 + \"(prix a consulter)\"")
 
     # Monta seções do prompt
     confirmed_section = ""
     if confirmed:
         confirmed_section = (
             "\n\nPRODUTOS SELECIONADOS PELO CLIENTE — confirmados no catalogo:\n"
-            "(Copie estes itens NO DEVIS com o preco exato. NAO altere nome nem preco.)\n"
+            "(Copie SOMENTE estes itens NO DEVIS com o preco exato. NAO altere nome nem preco. "
+            "NAO adicione outros produtos do catalogo que o cliente NAO selecionou.)\n"
             + "\n".join(confirmed)
+        )
+    else:
+        confirmed_section = (
+            "\n\nATENCAO: O cliente NAO selecionou nenhum produto. "
+            "O devis deve ter ZERO itens (lista vazia). "
+            "NAO inclua produtos do catalogo por conta propria."
         )
 
     absent_section = ""
@@ -273,14 +326,9 @@ def build_context(ctx: RunContext[QuoteDeps]) -> str:
     other_section = ""
     if context_answers:
         other_section = (
-            "\n\nOUTRAS RESPOSTAS DO CLIENTE:\n"
-            "(Contexto tecnico — regiao, amperagem, nome, etc. — OU descricoes de servico/produto "
-            "que NAO constam exatamente no catalogo.\n"
-            "REGRA: Se for relevante ao devis, incluir com a DESCRICAO EXATA do cliente "
-            "(INTERDIT de renomear ou substituir pelo nome de um produto do catalogo). "
-            "Se nao estiver no catalogo: preco 0 + \"(prix a consulter)\". "
-            "INTERDIT de inventar um preco aproximado baseado num produto parecido. "
-            "Informacoes pessoais (nome, email, telefone, endereco) NUNCA sao itens.)\n"
+            "\n\nINFORMACOES COMPLEMENTARES DO CLIENTE (somente contexto, NUNCA viram itens no devis):\n"
+            "(Use APENAS para personalizar recomendacoes e notas. "
+            "JAMAIS transforme estas informacoes em linhas de produto/servico no devis.)\n"
             + "\n".join(context_answers)
         )
 
@@ -474,19 +522,51 @@ async def validate_quote(ctx: RunContext[QuoteDeps], output: QuoteOutput) -> Quo
     return output
 
 
+def _detect_csv_delimiter(csv_text: str) -> str:
+    """Detecta se o separador do CSV e ; ou ,"""
+    first_line = csv_text.strip().split('\n')[0]
+    return ';' if ';' in first_line else ','
+
+
+def _normalize_number(val: str) -> float:
+    """Normaliza número em qualquer formato: 1099 | 1099.50 | 1099,50 | 1.099,50 | 1,099.50"""
+    val = val.strip()
+    if not val:
+        return 0.0
+
+    has_comma = ',' in val
+    has_dot = '.' in val
+
+    if has_comma and has_dot:
+        last_comma = val.rfind(',')
+        last_dot = val.rfind('.')
+        if last_comma > last_dot:
+            # 1.099,50 (BR/FR) → comma is decimal
+            val = val.replace('.', '').replace(',', '.')
+        else:
+            # 1,099.50 (US) → dot is decimal
+            val = val.replace(',', '')
+    elif has_comma:
+        # 1099,50 → comma is decimal
+        val = val.replace(',', '.')
+
+    return float(val)
+
+
 def _parse_csv_catalog(csv_text: str) -> list[dict]:
     """Parse le CSV en liste de produits avec prix."""
     if not csv_text or not csv_text.strip():
         return []
 
     try:
-        reader = csv.DictReader(io.StringIO(csv_text.strip()))
+        delimiter = _detect_csv_delimiter(csv_text)
+        reader = csv.DictReader(io.StringIO(csv_text.strip()), delimiter=delimiter)
         catalog = []
         for row in reader:
             name = row.get("produto", "").strip()
             price_str = row.get("preco", "0").strip()
             try:
-                price = float(price_str)
+                price = _normalize_number(price_str)
             except ValueError:
                 continue
             if name:
@@ -559,14 +639,19 @@ def _format_csv_for_prompt(csv_text: str) -> str:
         return "(Aucun catalogue de prix fourni)"
 
     try:
-        reader = csv.DictReader(io.StringIO(csv_text.strip()))
+        delimiter = _detect_csv_delimiter(csv_text)
+        reader = csv.DictReader(io.StringIO(csv_text.strip()), delimiter=delimiter)
         lines = []
         for row in reader:
             produto = row.get("produto", "").strip()
-            preco = row.get("preco", "0").strip()
+            preco_raw = row.get("preco", "0").strip()
+            try:
+                preco = _normalize_number(preco_raw)
+            except ValueError:
+                preco = 0.0
             unidade = row.get("unidade", "").strip()
             categoria = row.get("categoria", "").strip()
-            lines.append(f"| {produto} | ${preco} | {unidade} | {categoria} |")
+            lines.append(f"| {produto} | ${preco:.2f} | {unidade} | {categoria} |")
 
         if not lines:
             return "(CSV vide ou format invalide)"
@@ -618,6 +703,132 @@ def _format_quote_text(output: QuoteOutput, client_name: str) -> str:
     return "\n".join(lines)
 
 
+def _build_deterministic_items(answers: list[dict], catalog_map: dict, pricing_csv: str) -> list[QuoteItem]:
+    """Constrói lista de itens deterministicamente, sem IA.
+
+    Usa catalogProduct das opções e quantityProduct dos nodes number.
+    """
+    catalog = _parse_csv_catalog(pricing_csv)
+    quantity_overrides: dict[str, int] = {}
+    items_map: dict[str, QuoteItem] = {}  # product_lower → QuoteItem
+
+    # Primeiro: coletar quantidades
+    for answer in answers:
+        node_id = answer.get("node_id", "")
+        qty_product = catalog_map.get(f"{node_id}:__qty__", "")
+        if qty_product:
+            try:
+                quantity_overrides[qty_product.lower()] = int(float(str(answer.get("value", "1"))))
+            except (ValueError, TypeError):
+                quantity_overrides[qty_product.lower()] = 1
+
+    # Segundo: coletar produtos das respostas
+    for answer in answers:
+        node_id = answer.get("node_id", "")
+        value = str(answer.get("value", "")).strip()
+        label = str(answer.get("label", value)).strip()
+
+        if catalog_map.get(f"{node_id}:__qty__", ""):
+            continue
+        if catalog_map.get(f"{node_id}:__context__", ""):
+            continue
+
+        admin_product = catalog_map.get(f"{node_id}:{value.lower()}", "")
+        if admin_product == "__SKIP__":
+            continue
+
+        product_name = ""
+        if admin_product:
+            product_name = admin_product
+        else:
+            # Auto-detect do CSV
+            match = next(
+                (p for p in catalog if p["name"] in (value.lower(), label.lower()) or p["name_original"] in (value, label)),
+                None,
+            )
+            if match:
+                product_name = match["name_original"]
+
+        if not product_name:
+            continue
+
+        # Buscar no catálogo
+        cat_match = _find_catalog_match(product_name, catalog)
+        if cat_match and product_name.lower() not in items_map:
+            qty = quantity_overrides.get(product_name.lower(), 1)
+            items_map[product_name.lower()] = QuoteItem(
+                description=cat_match["name_original"],
+                unit_price=cat_match["price"],
+                quantity=qty,
+                subtotal=cat_match["price"] * qty,
+            )
+
+    # Terceiro: adicionar produtos de quantidade não associados a single_choice
+    for product_lower, qty in quantity_overrides.items():
+        if product_lower not in items_map:
+            match = _find_catalog_match(product_lower, catalog)
+            if match:
+                items_map[product_lower] = QuoteItem(
+                    description=match["name_original"],
+                    unit_price=match["price"],
+                    quantity=qty,
+                    subtotal=match["price"] * qty,
+                )
+
+    return list(items_map.values())
+
+
+def _build_quantity_overrides(answers: list[dict], catalog_map: dict) -> dict[str, int]:
+    """Extrai quantity overrides das respostas de perguntas number/rating vinculadas a produtos."""
+    overrides: dict[str, int] = {}
+    for answer in answers:
+        node_id = answer.get("node_id", "")
+        qty_product = catalog_map.get(f"{node_id}:__qty__", "")
+        if qty_product:
+            try:
+                overrides[qty_product.lower()] = int(float(str(answer.get("value", "1"))))
+            except (ValueError, TypeError):
+                overrides[qty_product.lower()] = 1
+    return overrides
+
+
+def _apply_quantity_overrides(output: QuoteOutput, overrides: dict[str, int], pricing_csv: str) -> QuoteOutput:
+    """Aplica quantidades determinísticas nos itens do orçamento (não confia na IA pra isso)."""
+    catalog = _parse_csv_catalog(pricing_csv)
+    catalog_by_name = {p["name"]: p for p in catalog}
+
+    new_items = []
+    for item in output.items:
+        name_lower = item.description.lower().strip()
+        qty = overrides.get(name_lower, None)
+        if qty is not None:
+            cat_entry = catalog_by_name.get(name_lower)
+            unit_price = cat_entry["price"] if cat_entry else item.unit_price
+            new_items.append(QuoteItem(
+                description=item.description,
+                unit_price=unit_price,
+                quantity=qty,
+                subtotal=unit_price * qty,
+            ))
+        else:
+            new_items.append(item)
+
+    subtotal = sum(i.subtotal for i in new_items)
+    tps = round(subtotal * 0.05, 2)
+    tvq = round(subtotal * 0.09975, 2)
+    total = round(subtotal + tps + tvq, 2)
+
+    return QuoteOutput(
+        items=new_items,
+        subtotal=subtotal,
+        taxes_tps=tps,
+        taxes_tvq=tvq,
+        total=total,
+        recommendations=output.recommendations,
+        notes=output.notes,
+    )
+
+
 class QuoteGenerator:
     """Interface publica — chamada pelo SubmissionService."""
 
@@ -647,6 +858,16 @@ class QuoteGenerator:
             catalog_map=catalog_map or {},
         )
 
+        # ── Itens determinísticos (sem IA) ──
+        det_items = _build_deterministic_items(answers, catalog_map or {}, pricing_csv)
+        subtotal = sum(i.subtotal for i in det_items)
+        tps = round(subtotal * 0.05, 2)
+        tvq = round(subtotal * 0.09975, 2)
+        total = round(subtotal + tps + tvq, 2)
+
+        # ── IA só para recomendações ──
+        recommendations = ""
+        notes = ""
         try:
             model_name = await _get_model_name()
             agent = _get_or_build_agent(model_name)
@@ -654,31 +875,36 @@ class QuoteGenerator:
                 "Genere le devis complet base sur les reponses du client et le catalogue de prix.",
                 deps=deps,
             )
-
             quote_output: QuoteOutput = result.output
-            logger.info(
-                f"Devis genere: {len(quote_output.items)} items, total=${quote_output.total}"
-            )
-
-            return {
-                "quote_text": _format_quote_text(quote_output, deps.client_name),
-                "quote_data": {
-                    "items": [item.model_dump() for item in quote_output.items],
-                    "subtotal": quote_output.subtotal,
-                    "taxes_tps": quote_output.taxes_tps,
-                    "taxes_tvq": quote_output.taxes_tvq,
-                    "total": quote_output.total,
-                    "recommendations": quote_output.recommendations,
-                    "notes": quote_output.notes,
-                },
-            }
-
+            recommendations = quote_output.recommendations
+            notes = quote_output.notes
         except Exception as e:
-            logger.error(f"Erreur PydanticAI: {e}")
-            return {
-                "quote_text": QuoteGenerator._generate_basic(client_data, answers),
-                "quote_data": None,
-            }
+            logger.warning(f"IA indisponible pour recommandations: {e}")
+
+        final_output = QuoteOutput(
+            items=det_items,
+            subtotal=subtotal,
+            taxes_tps=tps,
+            taxes_tvq=tvq,
+            total=total,
+            recommendations=recommendations,
+            notes=notes,
+        )
+
+        logger.info(f"Devis genere: {len(det_items)} items, total=${total}")
+
+        return {
+            "quote_text": _format_quote_text(final_output, deps.client_name),
+            "quote_data": {
+                "items": [item.model_dump() for item in det_items],
+                "subtotal": subtotal,
+                "taxes_tps": tps,
+                "taxes_tvq": tvq,
+                "total": total,
+                "recommendations": recommendations,
+                "notes": notes,
+            },
+        }
 
     @staticmethod
     def _generate_basic(client_data: dict, answers: list[dict]) -> str:
