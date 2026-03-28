@@ -1,57 +1,27 @@
-import { json } from '@sveltejs/kit';
-import { getDb } from '$lib/server/db';
+import { json, error } from '@sveltejs/kit';
+import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 
+const BACKEND_URL = env.BACKEND_URL || 'http://localhost:8001';
+
 export const GET: RequestHandler = async ({ url }) => {
-  const db = await getDb();
   const flowType = url.searchParams.get('flow_type');
-  const filter: Record<string, unknown> = {};
-  if (flowType) filter.flow_type = flowType;
-
-  const flows = await db
-    .collection('flows')
-    .find(filter, { projection: { nodes: 0, edges: 0 } })
-    .sort({ updated_at: -1 })
-    .toArray();
-
-  const result = flows.map((f) => ({
-    ...f,
-    _id: f._id.toString(),
-    node_count: f.node_count ?? 0
-  }));
-
-  return json(result);
+  const backendUrl = flowType
+    ? `${BACKEND_URL}/api/flows?flow_type=${encodeURIComponent(flowType)}`
+    : `${BACKEND_URL}/api/flows`;
+  const res = await fetch(backendUrl);
+  if (!res.ok) throw error(res.status, 'Erro ao buscar flows');
+  const data = await res.json();
+  return json(data.flows ?? data);
 };
 
 export const POST: RequestHandler = async ({ request }) => {
   const body = await request.json();
-  const db = await getDb();
-
-  const slug =
-    body.slug ||
-    body.name
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
-
-  const doc = {
-    tenant_id: body.tenant_id || 'tenant_1',
-    name: body.name,
-    slug,
-    status: body.status || 'draft',
-    flow_type: body.flow_type || 'quote',
-    version: 1,
-    nodes: body.nodes || [],
-    edges: body.edges || [],
-    pricing_csv: body.pricing_csv || '',
-    node_count: (body.nodes || []).length,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  };
-
-  const result = await db.collection('flows').insertOne(doc);
-
-  return json({ ...doc, _id: result.insertedId.toString() }, { status: 201 });
+  const res = await fetch(`${BACKEND_URL}/api/flows`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) throw error(res.status, 'Erro ao criar flow');
+  return json(await res.json(), { status: 201 });
 };

@@ -1,11 +1,11 @@
 import { json, error } from '@sveltejs/kit';
-import { getDb } from '$lib/server/db';
+import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ params }) => {
-  const db = await getDb();
-  const flow = await db.collection('flows').findOne({ slug: params.slug });
-  if (!flow) throw error(404, 'Flow nao encontrado');
+const BACKEND_URL = env.BACKEND_URL || 'http://localhost:8001';
 
-  return json({ ...flow, _id: flow._id.toString() });
+export const GET: RequestHandler = async ({ params }) => {
+  const res = await fetch(`${BACKEND_URL}/api/flows/slug/${params.slug}`);
+  if (!res.ok) throw error(res.status, 'Flow nao encontrado');
+  return json(await res.json());
 };
