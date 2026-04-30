@@ -27,25 +27,25 @@ export function toSvelteFlowEdges(flowEdges: FlowEdge[]): Edge[] {
 
 const defaultDataByType: Record<NodeType, () => FlowNodeData> = {
   start: () => ({
-    title: 'Início',
+    title: 'Début',
     collectFields: ['name', 'email', 'phone', 'address']
   }),
   question: () => ({
-    title: 'Nova Pergunta',
+    title: 'Nouvelle Question',
     questionType: 'single_choice',
     options: [
-      { id: 'opt_' + crypto.randomUUID().slice(0, 6), label: 'Opção 1', value: 'opcao_1' },
-      { id: 'opt_' + crypto.randomUUID().slice(0, 6), label: 'Opção 2', value: 'opcao_2' }
+      { id: 'opt_' + crypto.randomUUID().slice(0, 6), label: 'Option 1', value: 'option_1' },
+      { id: 'opt_' + crypto.randomUUID().slice(0, 6), label: 'Option 2', value: 'option_2' }
     ],
     required: true
   }),
   message: () => ({
-    title: 'Mensagem',
-    message: 'Texto informativo para o cliente.',
+    title: 'Message',
+    message: 'Texte informatif pour le client.',
     isSpecialist: false
   }),
   end: () => ({
-    title: 'Fim',
+    title: 'Fin',
     endType: 'quote',
     businessContext: '',
     aiInstruction: '',
@@ -56,7 +56,7 @@ const defaultDataByType: Record<NodeType, () => FlowNodeData> = {
 export function createFlowBuilderStore() {
   let nodes = $state.raw<Node[]>([]);
   let edges = $state.raw<Edge[]>([]);
-  let flowName = $state('Novo Fluxo');
+  let flowName = $state('Nouveau Flux');
   let flowId = $state<string | null>(null);
   let pricingCsv = $state('');
   let selectedNodeId = $state<string | null>(null);

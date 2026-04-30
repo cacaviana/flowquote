@@ -327,7 +327,7 @@ Subvention Roulez Vert (Level 2),-600,unidade,rabais`;
         disabled={saving}
         class="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 cursor-pointer transition-colors"
       >
-        {saving ? 'Salvando...' : 'Salvar'}
+        {saving ? 'Enregistrement...' : 'Enregistrer'}
       </button>
     </div>
   </header>
