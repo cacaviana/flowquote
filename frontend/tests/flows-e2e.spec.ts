@@ -5,9 +5,23 @@ import { test, expect } from '@playwright/test';
  * 1. Cafe com Leite — simple product selection + quantity
  * 2. Devis Borne EV — full quote with catalogProduct + quantityProduct
  * 3. Consultoria Agendamento — specialist flow (no quote)
+ *
+ * SKIPPED on 2026-04-30: these tests depend on fixture flows (`cafe-com-leite`,
+ * `devis-borne-de-recharge-ev` slug-with-1-hyphen, `consultoria-agendamento`) that
+ * either don't exist in production Mongo or have different slugs (`devis---borne-de-recharge-ev`
+ * has 3 hyphens in prod). They were created when dev had a local Mongo with seed fixtures.
+ *
+ * To re-enable safely:
+ *   1. Create dedicated TEST flows with `tenant_id='test'` and slug prefix `test-`
+ *   2. Update slugs in this file
+ *   3. Add afterAll cleanup so prod data stays untouched
+ *   4. Or use a separate test Mongo and override DB at suite level
+ *
+ * Until then we skip — running them against production fails (missing fixtures) and the
+ * tests were never authored to be safe in prod.
  */
 
-test.describe('Cafe com Leite', () => {
+test.describe.skip('Cafe com Leite', () => {
 
   test('sim cafe x3, nao leite → only Cafe x3 in quote', async ({ page }) => {
     await page.goto('/q/cafe-com-leite');
@@ -147,7 +161,7 @@ test.describe('Cafe com Leite', () => {
   });
 });
 
-test.describe('Devis Borne EV', () => {
+test.describe.skip('Devis Borne EV', () => {
 
   test('Borne 32A + mur ext + 25 pieds → correct items and cablage quantity', async ({ page }) => {
     await page.goto('/q/devis-borne-de-recharge-ev');
@@ -220,7 +234,7 @@ test.describe('Devis Borne EV', () => {
   });
 });
 
-test.describe('Consultoria Agendamento', () => {
+test.describe.skip('Consultoria Agendamento', () => {
 
   test('specialist flow → no quote, thank you message', async ({ page }) => {
     await page.goto('/q/consultoria-agendamento');

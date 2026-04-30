@@ -19,7 +19,22 @@ async function getTestFlow(request: any) {
   return null;
 }
 
-test.describe('Quote E2E - Full flow with agent', () => {
+/**
+ * SKIPPED on 2026-04-30: this suite was authored with a local Mongo containing the
+ * exact flow `devis-borne-de-recharge-ev` (1 hyphen). In production the actual slug
+ * is `devis---borne-de-recharge-ev` (3 hyphens), so getTestFlow returns null.
+ *
+ * ⚠️ IMPORTANT: Step 1 does PUT /api/flows/{id} with a hardcoded `pricing_csv` —
+ * if the slug ever matched, it would OVERWRITE Hugo's real catalog in production.
+ *
+ * To re-enable safely:
+ *   1. Create a dedicated TEST flow (status=draft, tenant_id='test') with slug like
+ *      `test-borne-recharge-ev` and use that throughout this suite
+ *   2. Add afterAll cleanup that deletes the test flow
+ *   3. Wrap with `if (process.env.PLAYWRIGHT_BASE_URL?.includes('totalelectrique')) test.skip()`
+ *      as belt-and-suspenders guard against prod pollution
+ */
+test.describe.skip('Quote E2E - Full flow with agent', () => {
 
   test('Step 1: Upload CSV via API', async ({ request }) => {
     const flow = await getTestFlow(request);
