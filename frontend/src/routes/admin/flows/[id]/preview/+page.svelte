@@ -28,7 +28,7 @@
   onMount(async () => {
     try {
       flow = await service.getById(page.params.id);
-      if (!flow) error = 'Fluxo não encontrado';
+      if (!flow) error = 'Flux non trouvé';
     } catch (e: any) {
       error = e.message;
     } finally {
@@ -139,7 +139,7 @@
       <div class="h-5 w-px bg-gray-200"></div>
       <div>
         <h1 class="text-sm font-bold text-gray-900">Preview: {flow?.name || '...'}</h1>
-        <p class="text-xs text-gray-500">Simulação do questionário — como o cliente vai ver</p>
+        <p class="text-xs text-gray-500">Simulation du questionnaire — comme le client le verra</p>
       </div>
     </div>
     <div class="flex items-center gap-2">
@@ -150,7 +150,7 @@
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
         </svg>
-        Recomeçar
+        Recommencer
       </button>
       <button
         onclick={() => goto(`/admin/flows/${page.params.id}/edit`)}
@@ -159,7 +159,7 @@
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
         </svg>
-        Editar fluxo
+        Éditer le flux
       </button>
       {#if flow?.slug}
         <a
@@ -185,7 +185,7 @@
         {#if loading}
           <div class="p-16 text-center">
             <div class="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-            <p class="text-sm text-gray-500">Carregando...</p>
+            <p class="text-sm text-gray-500">Chargement...</p>
           </div>
 
         {:else if error}

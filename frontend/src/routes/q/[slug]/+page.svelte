@@ -363,6 +363,13 @@
             <p class="text-base text-gray-600">{currentNode.data.message}</p>
           </div>
         {:else}
+          {#if currentNode.data.imageUrl}
+            <img
+              src={currentNode.data.imageUrl}
+              alt=""
+              class="w-full max-h-72 object-contain rounded-xl mb-4 border border-gray-100 bg-gray-50"
+            />
+          {/if}
           <h3 class="text-xl font-semibold text-gray-900 mb-2">{currentNode.data.title}</h3>
 
           {#if currentNode.data.tooltip}
@@ -372,13 +379,21 @@
           {/if}
 
           {#if currentNode.data.questionType === 'single_choice' && currentNode.data.options}
+            {@const hasAnyOptionImage = currentNode.data.options.some((o: any) => o.imageUrl)}
             <div class="grid grid-cols-2 gap-3">
               {#each currentNode.data.options as opt}
                 <button
                   onclick={() => selectAnswer(opt.value, opt.id, opt.label)}
-                  class="border-2 border-gray-200 rounded-xl px-4 py-4 text-center text-base font-medium hover:border-blue-500 hover:bg-blue-50 transition-all cursor-pointer"
+                  class="border-2 border-gray-200 rounded-xl text-center font-medium hover:border-blue-500 hover:bg-blue-50 transition-all cursor-pointer overflow-hidden flex flex-col {hasAnyOptionImage ? 'p-2' : 'px-4 py-4 text-base'}"
                 >
-                  {opt.label}
+                  {#if opt.imageUrl}
+                    <img src={opt.imageUrl} alt="" class="w-full h-32 object-cover rounded-lg mb-2 bg-gray-50" />
+                  {:else if hasAnyOptionImage}
+                    <div class="w-full h-32 bg-gray-50 rounded-lg mb-2 flex items-center justify-center text-gray-300">
+                      <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5z"/></svg>
+                    </div>
+                  {/if}
+                  <span class="text-sm {hasAnyOptionImage ? 'pb-1' : ''}">{opt.label}</span>
                 </button>
               {/each}
             </div>

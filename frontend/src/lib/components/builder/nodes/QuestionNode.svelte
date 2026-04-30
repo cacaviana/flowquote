@@ -18,7 +18,7 @@
 
   // Show individual option handles only for choice types with few options (branching)
   // For many options (like P2 brand with 7 options), show a compact summary + single output
-  const MAX_VISIBLE_OPTIONS = 5;
+  const MAX_VISIBLE_OPTIONS = 10;
   let optionCount = $derived((data.options || []).length);
   let showIndividualHandles = $derived(
     (data.questionType === 'single_choice' || data.questionType === 'multiple_choice' || data.questionType === 'dropdown')
@@ -32,7 +32,11 @@
 </script>
 
 <div class="node-card border-blue-400 bg-blue-50">
-  <Handle type="target" position={Position.Top} class="!bg-blue-500 !w-3 !h-3 !border-2 !border-white" />
+  <Handle type="target" position={Position.Top} class="!bg-blue-500 !w-5 !h-5 !border-2 !border-white" />
+
+  {#if data.imageUrl}
+    <img src={data.imageUrl} alt="" class="w-full h-20 object-cover rounded-lg mb-2 border border-blue-200" />
+  {/if}
 
   <div class="flex items-center gap-2 mb-1">
     <div class="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
@@ -51,11 +55,11 @@
     <div class="flex gap-2 mt-2 ml-9">
       <div class="handle-label bg-green-100 text-green-700">
         Oui
-        <Handle type="source" position={Position.Bottom} id="yes" class="!bg-green-500 !w-2.5 !h-2.5 !border-2 !border-white" />
+        <Handle type="source" position={Position.Bottom} id="yes" class="!bg-green-500 !w-4 !h-4 !border-2 !border-white" />
       </div>
       <div class="handle-label bg-red-100 text-red-700">
         Non
-        <Handle type="source" position={Position.Bottom} id="no" class="!bg-red-500 !w-2.5 !h-2.5 !border-2 !border-white" />
+        <Handle type="source" position={Position.Bottom} id="no" class="!bg-red-500 !w-4 !h-4 !border-2 !border-white" />
       </div>
     </div>
 
@@ -63,9 +67,12 @@
     <!-- Few options — show each with its own handle for branching -->
     <div class="flex flex-wrap gap-1.5 mt-2 ml-9">
       {#each data.options || [] as opt}
-        <div class="handle-label bg-blue-100 text-blue-700">
+        <div class="handle-label bg-blue-100 text-blue-700 flex items-center gap-1.5">
+          {#if opt.imageUrl}
+            <img src={opt.imageUrl} alt="" class="w-4 h-4 rounded object-cover border border-blue-200" />
+          {/if}
           {opt.label}
-          <Handle type="source" position={Position.Bottom} id={opt.id} class="!bg-blue-400 !w-2.5 !h-2.5 !border-2 !border-white" />
+          <Handle type="source" position={Position.Bottom} id={opt.id} class="!bg-blue-400 !w-4 !h-4 !border-2 !border-white" />
         </div>
       {/each}
     </div>
@@ -75,11 +82,11 @@
     <div class="mt-2 ml-9">
       <div class="text-xs text-blue-400">{optionCount} options : {(data.options || []).slice(0, 3).map(o => o.label).join(', ')}...</div>
     </div>
-    <Handle type="source" position={Position.Bottom} class="!bg-blue-500 !w-3 !h-3 !border-2 !border-white" />
+    <Handle type="source" position={Position.Bottom} class="!bg-blue-500 !w-5 !h-5 !border-2 !border-white" />
 
   {:else}
     <!-- Number, text, date, photo, rating — single handle -->
-    <Handle type="source" position={Position.Bottom} class="!bg-blue-500 !w-3 !h-3 !border-2 !border-white" />
+    <Handle type="source" position={Position.Bottom} class="!bg-blue-500 !w-5 !h-5 !border-2 !border-white" />
   {/if}
 </div>
 
@@ -90,7 +97,8 @@
     border-radius: 12px;
     padding: 12px 16px;
     min-width: 210px;
-    max-width: 300px;
+    width: max-content;
+    max-width: 560px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
     transition: box-shadow 0.15s ease;
   }
@@ -101,7 +109,23 @@
     position: relative;
     font-size: 11px;
     font-weight: 500;
-    padding: 2px 10px;
+    padding: 2px 10px 10px 10px;
     border-radius: 6px;
+  }
+
+  /* Bigger invisible hit area + visible hover state for all handles inside this node */
+  :global(.svelte-flow__handle) {
+    cursor: crosshair;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  :global(.svelte-flow__handle::before) {
+    content: '';
+    position: absolute;
+    inset: -10px;
+    border-radius: 50%;
+  }
+  :global(.svelte-flow__handle:hover) {
+    transform: scale(1.35);
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25);
   }
 </style>
