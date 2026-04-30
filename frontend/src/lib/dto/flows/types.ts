@@ -15,7 +15,6 @@ export interface FlowOption {
   label: string;
   value: string;
   catalogProduct?: string; // Nome exato do produto no CSV (opcional, para match determinístico)
-  imageUrl?: string;       // URL d'image illustrative (option visuelle de type carte)
 }
 
 export interface FlowNodeData {

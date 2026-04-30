@@ -67,10 +67,7 @@
     <!-- Few options — show each with its own handle for branching -->
     <div class="flex flex-wrap gap-1.5 mt-2 ml-9">
       {#each data.options || [] as opt}
-        <div class="handle-label bg-blue-100 text-blue-700 flex items-center gap-1.5">
-          {#if opt.imageUrl}
-            <img src={opt.imageUrl} alt="" class="w-4 h-4 rounded object-cover border border-blue-200" />
-          {/if}
+        <div class="handle-label bg-blue-100 text-blue-700">
           {opt.label}
           <Handle type="source" position={Position.Bottom} id={opt.id} class="!bg-blue-400 !w-4 !h-4 !border-2 !border-white" />
         </div>
