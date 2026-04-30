@@ -9,7 +9,7 @@ test.describe('FlowQuote - Production Tests', () => {
 
   test('Home page has Admin and Demo buttons', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByText('Painel Admin')).toBeVisible();
+    await expect(page.getByText('Panneau Admin')).toBeVisible();
   });
 
   test('Admin flow list loads', async ({ page }) => {
@@ -87,7 +87,7 @@ test.describe('FlowQuote - Production Tests', () => {
 
     await page.goto(`/admin/flows/${flowId}/edit`);
     // Should show the save button and flow name input
-    await expect(page.getByText('Salvar')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Enregistrer')).toBeVisible({ timeout: 10000 });
   });
 
   test('Submissions page loads', async ({ page }) => {
