@@ -93,14 +93,6 @@
     input.value = '';
   }
 
-  async function handleOptionImageUpload(e: Event, optId: string) {
-    const input = e.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-    const url = await uploadFile(file, optId);
-    if (url) updateOption(optId, 'imageUrl', url);
-    input.value = '';
-  }
 
   const typeColors: Record<string, string> = {
     start: 'bg-green-500',
@@ -264,32 +256,6 @@
                     </svg>
                   </button>
                 </div>
-
-                <!-- Image URL pour cette option (carte visuelle) -->
-                <div class="flex gap-1.5 items-center">
-                  <label class="cursor-pointer flex items-center gap-1 px-2 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[11px] hover:bg-blue-100 transition-colors flex-shrink-0 {uploading[opt.id] ? 'opacity-50 pointer-events-none' : ''}">
-                    {#if uploading[opt.id]}
-                      <span class="w-2.5 h-2.5 border-[1.5px] border-blue-600 border-t-transparent rounded-full animate-spin"></span>
-                    {:else}
-                      <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
-                    {/if}
-                    Image
-                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" onchange={(e) => handleOptionImageUpload(e, opt.id)} />
-                  </label>
-                  <input
-                    type="url"
-                    value={opt.imageUrl || ''}
-                    oninput={(e) => updateOption(opt.id, 'imageUrl', (e.target as HTMLInputElement).value || undefined)}
-                    class="input !py-1.5 flex-1 bg-white text-xs"
-                    placeholder="ou URL"
-                  />
-                  {#if opt.imageUrl}
-                    <img src={opt.imageUrl} alt="" class="w-7 h-7 rounded object-cover border border-gray-200 flex-shrink-0" />
-                  {/if}
-                </div>
-                {#if uploadError[opt.id]}
-                  <p class="text-[10px] text-red-500">{uploadError[opt.id]}</p>
-                {/if}
 
                 <!-- Produto no catálogo (só aparece se CSV foi carregado) -->
                 {#if catalogItems.length > 0}
