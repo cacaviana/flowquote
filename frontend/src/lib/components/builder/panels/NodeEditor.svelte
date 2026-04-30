@@ -342,7 +342,7 @@
               value={data.quantityProduct || ''}
               oninput={(e) => onUpdate({ quantityProduct: (e.target as HTMLInputElement).value })}
               class="input !py-1 text-xs flex-1 bg-white {data.quantityProduct ? 'border-green-300 text-green-800' : 'border-amber-200 text-gray-500'}"
-              placeholder="Vincular a produto do CSV..."
+              placeholder="Lier au produit du CSV..."
             />
             <datalist id="catalog-qty-{node.id}">
               {#each catalogItems as item}

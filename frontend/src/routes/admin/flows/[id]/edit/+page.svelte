@@ -44,6 +44,17 @@
     if (idx === -1) return [];
     return rows.slice(1).map(r => r[idx]).filter(Boolean);
   });
+
+  // Mapa: chave técnica do CSV (PT, exigida pelo backend) → label exibida (FR).
+  // Backend Python parseia por nome de coluna (produto/preco/unidade/categoria), então
+  // os keys do CSV ficam em PT. Só a exibição é traduzida.
+  const csvHeaderLabel: Record<string, string> = {
+    produto: 'PRODUIT',
+    preco: 'PRIX',
+    unidade: 'UNITÉ',
+    categoria: 'CATÉGORIE'
+  };
+  const displayHeader = (raw: string) => csvHeaderLabel[raw.toLowerCase()] ?? raw.toUpperCase();
   let agentLoading = $state(false);
 
   async function openAgentModal() {
@@ -62,19 +73,24 @@
     }
   }
 
+  // Note: les en-têtes (produto, preco, unidade, categoria) restent en PT
+  // car le backend Python parse par nom de colonne. L'affichage est traduit en FR.
   const CSV_TEMPLATE = `produto,preco,unidade,categoria
-Borne 16A Level 1,499,unidade,borne
-Borne 32A Level 2,699,unidade,borne
-Borne 40A Level 2,899,unidade,borne
-Borne 48A Level 2,1099,unidade,borne
-Controller DCC-9,699,unidade,accessoire
-Installation murale exterieure,490,unidade,installation
-Installation sur poteau,690,unidade,installation
-Cablage par pied,9,pied,cablage
-Deplacement,69,unidade,deplacement
-Mise a niveau panneau 100A vers 200A,1800,unidade,upgrade
-Sous-panneau 100A,900,unidade,upgrade
-Subvention Roulez Vert (Level 2),-600,unidade,rabais`;
+Borne Basic 16A,444,unite,borne
+Borne Plus 32A,666,unite,borne
+Borne Max 40A,899,unite,borne
+Borne Ultra 60A,1290,unite,borne
+Borne Premium 100A,1790,unite,borne
+Controleur de Charge standard,650,unite,accessoire
+Installation du controleur,350,unite,installation
+Installation mur exterieur,490,unite,installation
+Installation pilier 4x4 traite,590,unite,installation
+Installation interieure,750,unite,installation
+Cable electrique souterrain,9,pied,cablage
+Deplacement,69,unite,deplacement
+Upgrade entree electrique 100A,2900,unite,upgrade
+Sous-panneau 100A,900,unite,upgrade
+Subvention Roulez Vert (Level 2),-600,unite,rabais`;
 
   /**
    * Normaliza número em qualquer formato para float válido.
@@ -108,14 +124,17 @@ Subvention Roulez Vert (Level 2),-600,unidade,rabais`;
 
   function parseCsv(text: string): { rows: string[][]; valid: boolean; error: string } {
     const lines = text.trim().split('\n').map(l => l.trim()).filter(l => l);
-    if (lines.length < 2) return { rows: [], valid: false, error: 'Le CSV doit avoir au moins un en-tête et une ligne de données' };
+    if (lines.length < 2) return { rows: [], valid: false, error: 'Le CSV doit avoir au moins un en-tête et une ligne de données.' };
 
     // Auto-detect separator: ; or ,
     const sep = lines[0].includes(';') ? ';' : ',';
     const header = lines[0].split(sep).map(h => h.trim().toLowerCase());
+    // Note: les noms de colonnes restent en PT (produto/preco/unidade/categoria) pour rester
+    // compatibles avec le backend Python qui parse par nom de colonne. La couche d'affichage
+    // les traduit en FR via csvHeaderLabel.
     const requiredCols = ['produto', 'preco'];
     const missing = requiredCols.filter(c => !header.includes(c));
-    if (missing.length > 0) return { rows: [], valid: false, error: `Colonnes manquantes: ${missing.join(', ')}. Format requis: produto,preco,unidade,categoria` };
+    if (missing.length > 0) return { rows: [], valid: false, error: `Colonnes manquantes : ${missing.join(', ')}. Format requis : produto,preco,unidade,categoria` };
 
     const rows = lines.map(l => l.split(sep).map(c => c.trim()));
 
@@ -253,7 +272,7 @@ Subvention Roulez Vert (Level 2),-600,unidade,rabais`;
         store.flowId = saved._id;
       }
       store.hasChanges = false;
-      toast = 'Salvo!';
+      toast = 'Enregistré !';
       setTimeout(() => toast = '', 2500);
     } catch (e: any) {
       toast = 'Erro: ' + e.message;
@@ -286,18 +305,18 @@ Subvention Roulez Vert (Level 2),-600,unidade,rabais`;
         </span>
       {/if}
       {#if store.hasChanges}
-        <span class="w-2 h-2 rounded-full bg-yellow-400" title="Alterações não salvas"></span>
+        <span class="w-2 h-2 rounded-full bg-yellow-400" title="Modifications non enregistrées"></span>
       {/if}
       <button
         onclick={openCsvModal}
         class="text-xs font-medium {store.pricingCsv ? 'text-green-700 bg-green-50 hover:bg-green-100' : 'text-gray-600 bg-gray-100 hover:text-orange-600 hover:bg-orange-50'} rounded-md px-3 py-1.5 cursor-pointer transition-colors flex items-center gap-1"
         data-testid="btn-csv-upload"
-        title="Enviar tabela de precos (CSV)"
+        title="Envoyer le catalogue de prix (CSV)"
       >
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
         </svg>
-        {store.pricingCsv ? 'CSV carregado' : 'Preços (CSV)'}
+        {store.pricingCsv ? 'CSV chargé' : 'Prix (CSV)'}
       </button>
       <button
         onclick={openAgentModal}
@@ -380,7 +399,7 @@ Subvention Roulez Vert (Level 2),-600,unidade,rabais`;
       <div class="px-6 py-4 border-b flex items-center justify-between">
         <div>
           <h2 class="text-base font-bold text-gray-900">Catalogue de prix (CSV)</h2>
-          <p class="text-xs text-gray-500 mt-0.5">Envoyez votre fichier CSV avec les produits et prix. L'IA utilisera ce catalogue pour generer les devis.</p>
+          <p class="text-xs text-gray-500 mt-0.5">Envoyez votre fichier CSV avec les produits et prix. L'IA utilisera ce catalogue pour générer les devis.</p>
         </div>
         <button onclick={() => showCsvUpload = false} class="text-gray-400 hover:text-gray-600 cursor-pointer p-1">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -396,13 +415,13 @@ Subvention Roulez Vert (Level 2),-600,unidade,rabais`;
             <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
             </svg>
-            <span class="text-sm text-blue-700">Telechargez le modele CSV pour voir le format attendu</span>
+            <span class="text-sm text-blue-700">Téléchargez le modèle CSV pour voir le format attendu</span>
           </div>
           <button
             onclick={downloadTemplate}
             class="text-xs font-semibold text-blue-700 bg-blue-100 hover:bg-blue-200 px-3 py-1.5 rounded-md cursor-pointer transition-colors"
           >
-            Telecharger modele
+            Télécharger le modèle
           </button>
         </div>
 
@@ -422,7 +441,7 @@ Subvention Roulez Vert (Level 2),-600,unidade,rabais`;
             Choisir un fichier
             <input type="file" accept=".csv" class="hidden" onchange={(e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleCsvFile(f); }} />
           </label>
-          <p class="text-xs text-gray-400 mt-2">Format: produto,preco,unidade,categoria</p>
+          <p class="text-xs text-gray-400 mt-2">Format CSV : produto,preco,unidade,categoria (en-têtes techniques, affichés en français dans le tableau)</p>
         </div>
 
         <!-- Error -->
@@ -438,13 +457,13 @@ Subvention Roulez Vert (Level 2),-600,unidade,rabais`;
         <!-- Preview table -->
         {#if csvPreviewRows.length > 0}
           <div>
-            <h3 class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Apercu du catalogue ({csvPreviewRows.length - 1} produits)</h3>
+            <h3 class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Aperçu du catalogue ({csvPreviewRows.length - 1} produits)</h3>
             <div class="border border-gray-200 rounded-lg overflow-hidden">
               <table class="w-full text-sm">
                 <thead>
                   <tr class="bg-gray-50">
                     {#each csvPreviewRows[0] as header}
-                      <th class="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">{header}</th>
+                      <th class="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">{displayHeader(header)}</th>
                     {/each}
                   </tr>
                 </thead>
@@ -466,16 +485,16 @@ Subvention Roulez Vert (Level 2),-600,unidade,rabais`;
       <div class="px-6 py-3 border-t flex justify-between items-center">
         <div>
           {#if store.pricingCsv && csvPreviewRows.length === 0}
-            <span class="text-xs text-green-600 font-medium">CSV deja charge</span>
+            <span class="text-xs text-green-600 font-medium">CSV déjà chargé</span>
           {/if}
         </div>
         <div class="flex gap-2">
           {#if store.pricingCsv}
             <button
-              onclick={() => { store.pricingCsv = ''; csvPreviewRows = []; toast = 'CSV supprime'; setTimeout(() => toast = '', 2500); }}
+              onclick={() => { store.pricingCsv = ''; csvPreviewRows = []; toast = 'CSV supprimé'; setTimeout(() => toast = '', 2500); }}
               class="text-xs text-red-600 px-3 py-2 rounded-lg hover:bg-red-50 cursor-pointer transition-colors"
             >
-              Supprimer CSV
+              Supprimer le CSV
             </button>
           {/if}
           <button
