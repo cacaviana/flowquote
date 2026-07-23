@@ -1,11 +1,13 @@
-from fastapi import APIRouter
+from typing import Optional
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from config.database import mongodb_client
+from dependencies.tenant import TenantContext, get_tenant_context
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
 COLLECTION = "settings"
-DOC_ID = "ai_settings"
+LEGACY_DOC_ID = "ai_settings"
 
 MODELS = {
     "anthropic": [
@@ -24,11 +26,19 @@ class AiSettingsRequest(BaseModel):
     model: str
 
 
-async def get_ai_config() -> dict:
-    """Retorna config de IA atual (DB tem prioridade sobre .env)."""
+def _doc_id(tenant_id: Optional[str]) -> str:
+    return f"{LEGACY_DOC_ID}:{tenant_id}" if tenant_id else LEGACY_DOC_ID
+
+
+async def get_ai_config(tenant_id: Optional[str] = None) -> dict:
+    """Retorna config de IA atual (doc do tenant > doc legado > .env)."""
     from config.settings import settings
 
-    doc = await mongodb_client.database[COLLECTION].find_one({"_id": DOC_ID})
+    doc = None
+    if tenant_id:
+        doc = await mongodb_client.database[COLLECTION].find_one({"_id": _doc_id(tenant_id)})
+    if not doc:
+        doc = await mongodb_client.database[COLLECTION].find_one({"_id": LEGACY_DOC_ID})
     if doc:
         return {"provider": doc["provider"], "model": doc["model"]}
     # fallback para .env
@@ -39,16 +49,16 @@ async def get_ai_config() -> dict:
 
 
 @router.get("/ai")
-async def get_ai_settings():
-    config = await get_ai_config()
+async def get_ai_settings(ctx: TenantContext = Depends(get_tenant_context)):
+    config = await get_ai_config(tenant_id=ctx.tenant_id)
     return {**config, "available_models": MODELS}
 
 
 @router.put("/ai")
-async def update_ai_settings(body: AiSettingsRequest):
+async def update_ai_settings(body: AiSettingsRequest, ctx: TenantContext = Depends(get_tenant_context)):
     await mongodb_client.database[COLLECTION].update_one(
-        {"_id": DOC_ID},
-        {"$set": {"provider": body.provider, "model": body.model}},
+        {"_id": _doc_id(ctx.tenant_id)},
+        {"$set": {"provider": body.provider, "model": body.model, "tenant_id": ctx.tenant_id}},
         upsert=True,
     )
     return {"provider": body.provider, "model": body.model}

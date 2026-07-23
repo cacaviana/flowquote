@@ -9,13 +9,17 @@ class SubmissionFactory:
         return datetime.now(timezone.utc).isoformat()
 
     @classmethod
-    def create_new(cls, data: dict, end_node: dict) -> dict:
-        """Cria submission a partir dos dados do request + info do end node."""
+    def create_new(cls, data: dict, end_node: dict, tenant_id: str | None = None) -> dict:
+        """Cria submission a partir dos dados do request + info do end node.
+
+        tenant_id vem SEMPRE do documento do flow (resolvido pelo Service) —
+        nunca do payload do cliente final.
+        """
 
         end_type = end_node.get("data", {}).get("endType", "thank_you")
 
         return {
-            "tenant_id": data.get("tenant_id", "tenant_1"),
+            "tenant_id": tenant_id,
             "flow_id": data["flow_id"],
             "flow_slug": data["flow_slug"],
             "client_name": data["client_name"],
