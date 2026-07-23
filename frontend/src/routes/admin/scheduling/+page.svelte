@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { authFetch } from '$lib/services/session';
   import { onMount } from 'svelte';
 
   interface SchedulingFlow {
@@ -31,8 +32,8 @@
 
   onMount(async () => {
     const [flowsRes, schedulingsRes] = await Promise.all([
-      fetch('/api/flows?flow_type=scheduling'),
-      fetch('/api/scheduling')
+      authFetch('/api/flows?flow_type=scheduling'),
+      authFetch('/api/scheduling')
     ]);
 
     if (flowsRes.ok) flows = await flowsRes.json();
@@ -41,7 +42,7 @@
   });
 
   async function createNew() {
-    const res = await fetch('/api/flows', {
+    const res = await authFetch('/api/flows', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -66,7 +67,7 @@
 
   async function deleteFlow(flow: SchedulingFlow) {
     if (!confirm(`Supprimer "${flow.name}" ?`)) return;
-    await fetch(`/api/flows/${flow._id}`, { method: 'DELETE' });
+    await authFetch(`/api/flows/${flow._id}`, { method: 'DELETE' });
     flows = flows.filter(f => f._id !== flow._id);
   }
 

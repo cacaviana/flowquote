@@ -7,6 +7,7 @@ from routers.flow import router as flow_router
 from routers.submission import router as submission_router
 from routers.agent import router as agent_router
 from routers.settings import router as settings_router
+from routers.auth import router as auth_router
 import logging
 
 logging.basicConfig(
@@ -65,6 +66,7 @@ async def health():
         return {"status": "unhealthy", "mongodb": str(e)}
 
 
+app.include_router(auth_router)
 app.include_router(flow_router)
 app.include_router(submission_router)
 app.include_router(agent_router)

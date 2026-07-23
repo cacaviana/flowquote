@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
+  import { authFetch } from '$lib/services/session';
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
 
@@ -26,7 +27,7 @@
 
   onMount(async () => {
     try {
-      const res = await fetch(`/api/submissions/${page.params.id}`);
+      const res = await authFetch(`/api/submissions/${page.params.id}`);
       if (res.ok) {
         submission = await res.json();
       } else {

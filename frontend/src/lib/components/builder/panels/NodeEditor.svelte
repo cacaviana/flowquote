@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Node } from '@xyflow/svelte';
   import type { FlowNodeData, QuestionType, FlowOption } from '$lib/dto/flows/types';
+  import { getTenantSlug } from '$lib/services/session';
 
   let { node, onUpdate, onDelete, onClose, catalogItems = [] } = $props<{
     node: Node;
@@ -68,6 +69,8 @@
       const fd = new FormData();
       fd.append('file', file);
       fd.append('node_id', node.id);
+      const tenant = getTenantSlug();
+      if (tenant) fd.append('tenant_id', tenant);
       if (slot !== 'question') fd.append('option_id', slot);
       const res = await fetch('/api/upload', { method: 'POST', body: fd });
       if (!res.ok) {

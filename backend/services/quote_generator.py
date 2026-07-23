@@ -148,11 +148,11 @@ def _setup_env():
 _setup_env()
 
 
-async def _get_model_name() -> str:
-    """Busca modelo do DB (prioridade) ou cai no .env."""
+async def _get_model_name(tenant_id: str | None = None) -> str:
+    """Busca modelo do DB (config do tenant tem prioridade) ou cai no .env."""
     from routers.settings import get_ai_config
     try:
-        cfg = await get_ai_config()
+        cfg = await get_ai_config(tenant_id=tenant_id)
         provider = cfg["provider"]
         model = cfg["model"]
     except Exception:
@@ -840,6 +840,7 @@ class QuoteGenerator:
         ai_instruction: str = "",
         pricing_csv: str = "",
         catalog_map: dict | None = None,
+        tenant_id: str | None = None,
     ) -> dict:
         """Gera orcamento usando PydanticAI com output estruturado.
 
@@ -869,7 +870,7 @@ class QuoteGenerator:
         recommendations = ""
         notes = ""
         try:
-            model_name = await _get_model_name()
+            model_name = await _get_model_name(tenant_id=tenant_id)
             agent = _get_or_build_agent(model_name)
             result = await agent.run(
                 "Genere le devis complet base sur les reponses du client et le catalogue de prix.",

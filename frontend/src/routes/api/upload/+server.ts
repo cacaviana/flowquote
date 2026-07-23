@@ -30,7 +30,8 @@ export const POST: RequestHandler = async ({ request }) => {
   if (file.size > MAX_BYTES) throw error(413, `File too large (max ${MAX_BYTES / 1024 / 1024} MB)`);
   if (!ALLOWED.has(file.type)) throw error(415, `Unsupported type: ${file.type}`);
 
-  const tenant = safeSlug(form.get('tenant_id') as string | null, 'tenant_1');
+  // Tenant vem da sessao Petra (builder admin) ou do flow — nunca hardcoded.
+  const tenant = safeSlug(form.get('tenant_id') as string | null, 'misc');
   const flowId = safeSlug(form.get('flow_id') as string | null, 'misc');
   const nodeId = safeSlug(form.get('node_id') as string | null, 'misc');
   const optionId = safeSlug(form.get('option_id') as string | null, '');

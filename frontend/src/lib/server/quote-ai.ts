@@ -107,7 +107,8 @@ Réponds en JSON avec cette structure exacte:
 
 	// 5. Save submission to DB
 	const doc = {
-		tenant_id: 'tenant_1',
+		// Tenant resolvido pelo documento do flow — nunca vem do cliente
+		tenant_id: (flow.tenant_id as string | undefined) ?? null,
 		flow_id: payload.flow_id,
 		flow_slug: payload.flow_slug,
 		client_name: payload.client_name,

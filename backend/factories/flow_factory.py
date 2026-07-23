@@ -39,8 +39,11 @@ class FlowFactory:
         now = cls._now_iso()
         slug = data.get("slug") or cls._generate_slug(data["name"])
 
+        if not data.get("tenant_id"):
+            raise ValueError("tenant_id obrigatorio para criar flow")
+
         doc = {
-            "tenant_id": data.get("tenant_id", "tenant_1"),
+            "tenant_id": data["tenant_id"],
             "name": data["name"],
             "slug": slug,
             "status": data.get("status", "draft"),

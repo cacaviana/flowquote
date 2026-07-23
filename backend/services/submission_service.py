@@ -7,7 +7,12 @@ from services.quote_generator import QuoteGenerator
 
 
 class SubmissionService:
-    """Camada opaca — orquestra Factory, Repository, Mapper e QuoteGenerator."""
+    """Camada opaca — orquestra Factory, Repository, Mapper e QuoteGenerator.
+
+    Rotas admin sao escopadas por tenant_id (JWT).
+    create() e PUBLICO (formulario do cliente final): o tenant NUNCA vem do
+    cliente — e resolvido pelo documento do flow referenciado.
+    """
 
     def __init__(self):
         self._repository = SubmissionRepository()
@@ -16,27 +21,35 @@ class SubmissionService:
         self._mapper = SubmissionMapper
         self._quote_generator = QuoteGenerator
 
-    async def list_all(self) -> dict:
-        docs = await self._repository.find_all()
+    async def list_all(self, tenant_id: str) -> dict:
+        docs = await self._repository.find_all(tenant_id=tenant_id)
         summaries = [self._mapper.to_summary(doc) for doc in docs]
         return {"submissions": summaries, "total": len(summaries)}
 
-    async def list_by_flow(self, flow_id: str) -> dict:
-        docs = await self._repository.find_by_flow(flow_id)
+    async def list_by_flow(self, flow_id: str, tenant_id: str) -> dict:
+        docs = await self._repository.find_by_flow(flow_id, tenant_id=tenant_id)
         summaries = [self._mapper.to_summary(doc) for doc in docs]
         return {"submissions": summaries, "total": len(summaries)}
 
-    async def get_by_id(self, id: str) -> Optional[dict]:
-        doc = await self._repository.find_by_id(id)
+    async def get_by_id(self, id: str, tenant_id: str) -> Optional[dict]:
+        doc = await self._repository.find_by_id(id, tenant_id=tenant_id)
         if not doc:
             return None
         return self._mapper.to_response(doc)
 
     async def create(self, data: dict) -> dict:
-        # Buscar flow para pegar o end_node com businessContext
+        """Cria submission (rota PUBLICA).
+
+        O tenant e resolvido pelo flow — lookup sem filtro de tenant,
+        e o tenant_id do documento do flow e carimbado na submission.
+        """
+        # Buscar flow para pegar o end_node com businessContext + tenant
         flow_doc = await self._flow_repository.find_by_id(data["flow_id"])
         if not flow_doc:
             raise ValueError("Flow nao encontrado")
+
+        # Tenant vem SEMPRE do documento do flow — nunca do payload do cliente
+        tenant_id = flow_doc.get("tenant_id")
 
         # Encontrar o end_node
         end_node = None
@@ -56,8 +69,8 @@ class SubmissionService:
         # esse mapeamento é usado para match determinístico (sem depender da IA).
         catalog_map = _build_catalog_map(flow_doc.get("nodes", []))
 
-        # Criar submission via Factory
-        submission_doc = self._factory.create_new(data, end_node)
+        # Criar submission via Factory (carimba tenant do flow)
+        submission_doc = self._factory.create_new(data, end_node, tenant_id=tenant_id)
 
         # Se o end_type for quote, gerar orcamento
         if submission_doc["end_type"] == "quote":
@@ -68,6 +81,7 @@ class SubmissionService:
                 answers=data["answers"],
                 pricing_csv=pricing_csv,
                 catalog_map=catalog_map,
+                tenant_id=tenant_id,
             )
             submission_doc["quote_text"] = quote_result["quote_text"]
             submission_doc["quote_data"] = quote_result["quote_data"]
@@ -77,8 +91,8 @@ class SubmissionService:
         saved = await self._repository.insert(submission_doc)
         return self._mapper.to_response(saved)
 
-    async def delete(self, id: str) -> bool:
-        return await self._repository.delete(id)
+    async def delete(self, id: str, tenant_id: str) -> bool:
+        return await self._repository.delete(id, tenant_id=tenant_id)
 
 
 def _build_catalog_map(nodes: list) -> dict[str, str]:
