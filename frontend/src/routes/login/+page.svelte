@@ -1,6 +1,19 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { setSession } from '$lib/services/session';
+  import { getSession, setSession } from '$lib/services/session';
+  import { tryAdoptSsoSession } from '$lib/services/sso';
+
+  // SSO Petra Suite: quem chega no /login ja logado na suite entra direto.
+  onMount(() => {
+    if (getSession()) {
+      goto('/admin');
+      return;
+    }
+    const sso = tryAdoptSsoSession();
+    if (sso && sso !== 'denied') goto('/admin');
+    // Sem cookie (ou plano sem Quanto): permanece na tela de login.
+  });
 
   let email = $state('');
   let password = $state('');

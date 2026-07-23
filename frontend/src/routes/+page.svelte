@@ -1,6 +1,8 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { FlowsService } from '$lib/services/flows.service';
+  import { getSession } from '$lib/services/session';
+  import { tryAdoptSsoSession } from '$lib/services/sso';
   import type { Flow } from '$lib/dto/flows/types';
   import { onMount } from 'svelte';
 
@@ -10,6 +12,18 @@
   let creatingScheduling = $state(false);
 
   onMount(async () => {
+    // SSO Petra Suite: sessao local ou cookie petra_sso valido → entra direto.
+    // Sem sessao/cookie, a landing publica permanece intacta.
+    if (getSession()) {
+      goto('/admin');
+      return;
+    }
+    const sso = tryAdoptSsoSession();
+    if (sso && sso !== 'denied') {
+      goto('/admin');
+      return;
+    }
+
     try {
       flows = await service.list();
     } catch (e) {

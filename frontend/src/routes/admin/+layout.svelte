@@ -1,47 +1,19 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { getSession, setSession, clearSession, type PetraSession } from '$lib/services/session';
-  import { readSsoCookie, clearSsoCookie } from '$lib/services/sso';
+  import { getSession, clearSession, type PetraSession } from '$lib/services/session';
+  import { clearSsoCookie, tryAdoptSsoSession } from '$lib/services/sso';
 
   let { children } = $props();
   let session = $state<PetraSession | null>(null);
   let checked = $state(false);
   let ssoDenied = $state(false);
 
-  // SSO Petra Suite: sem sessao local, tenta o cookie petra_sso do portal.
-  // Retorna a sessao adotada, 'denied' se o plano nao inclui o Quanto,
-  // ou null quando nao ha cookie utilizavel.
-  function tentarSso(): PetraSession | 'denied' | null {
-    const raw = readSsoCookie();
-    if (!raw) return null;
-    try {
-      const sso = JSON.parse(raw);
-      if (!sso?.access_token) return null;
-      const products: string[] = Array.isArray(sso.products)
-        ? sso.products.map((p: any) => (typeof p === 'string' ? p : p?.slug)).filter(Boolean)
-        : [];
-      const isMaster = sso.tenant?.is_master === true;
-      if (!products.includes('quanto') && !isMaster) return 'denied';
-
-      const nova: PetraSession = {
-        access_token: sso.access_token,
-        refresh_token: sso.refresh_token,
-        user: sso.user ?? null,
-        tenant: sso.tenant ?? null,
-        products
-      };
-      setSession(nova);
-      return nova;
-    } catch {
-      return null;
-    }
-  }
-
   onMount(() => {
     session = getSession();
     if (!session) {
-      const sso = tentarSso();
+      // SSO Petra Suite: sem sessao local, tenta o cookie petra_sso do portal.
+      const sso = tryAdoptSsoSession();
       if (sso === 'denied') {
         ssoDenied = true;
         return;
