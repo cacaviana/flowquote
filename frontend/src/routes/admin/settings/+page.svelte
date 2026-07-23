@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { authFetch } from '$lib/services/session';
   import { onMount } from 'svelte';
 
   type ModelOption = { id: string; label: string };
@@ -13,7 +14,7 @@
   let saved = $state(false);
 
   onMount(async () => {
-    const res = await fetch('/api/settings');
+    const res = await authFetch('/api/settings');
     const data = await res.json();
     provider = data.provider;
     model = data.model;
@@ -30,7 +31,7 @@
   async function save() {
     saving = true;
     saved = false;
-    await fetch('/api/settings', {
+    await authFetch('/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ provider, model })

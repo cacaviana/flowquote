@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { authFetch } from '$lib/services/session';
   import { FlowsService } from '$lib/services/flows.service';
   import type { Flow } from '$lib/dto/flows/types';
   import { onMount } from 'svelte';
@@ -21,7 +22,7 @@
 
   async function deleteFlow(flow: Flow) {
     if (!confirm(`Supprimer le flux "${flow.name}" ? Cette action est irréversible.`)) return;
-    await fetch(`/api/flows/${flow._id}`, { method: 'DELETE' });
+    await authFetch(`/api/flows/${flow._id}`, { method: 'DELETE' });
     flows = flows.filter(f => f._id !== flow._id);
   }
 

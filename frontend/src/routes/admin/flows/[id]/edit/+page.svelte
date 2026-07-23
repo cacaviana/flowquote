@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
+  import { authFetch } from '$lib/services/session';
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import {
@@ -62,7 +63,7 @@
     if (agentInfo) return;
     agentLoading = true;
     try {
-      const res = await fetch('/api/agent-info');
+      const res = await authFetch('/api/agent-info');
       if (res.ok) {
         agentInfo = await res.json();
       }
