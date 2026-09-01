@@ -1,0 +1,27 @@
+name: Deploy FlowQuote Web (Azure PetraAi)
+on:
+  push:
+    branches: [master]
+    paths: ['frontend/**', '.github/workflows/deploy-flowquote-frontend.yml']
+  workflow_dispatch: {}
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+          cp package.json build/
+          cp package-lock.json build/
+          cd build && npm ci --omit=dev 2>/dev/null || true
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: flowquote-web
+          publish-profile: ${{ secrets.AZURE_FLOWQUOTE_WEB_PUBLISH_PROFILE }}
+          package: frontend/build

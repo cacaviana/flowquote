@@ -1,0 +1,16 @@
+name: Deploy FlowQuote API (Azure PetraAi)
+on:
+  push:
+    branches: [master]
+    paths: ['backend/**', '.github/workflows/deploy-flowquote-backend.yml']
+  workflow_dispatch: {}
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: flowquote-api
+          publish-profile: ${{ secrets.AZURE_FLOWQUOTE_API_PUBLISH_PROFILE }}
+          package: backend

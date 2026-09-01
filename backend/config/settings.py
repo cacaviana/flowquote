@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     mongodb_uri: str = Field(..., description="URI de conexao do MongoDB Atlas")
     mongodb_database: str = Field(default="flowquote")
 
+    # Auth local (fallback enquanto a Petra Suite nao esta no ar)
+    auth_local: bool = Field(default=False)
+
     # CORS
     cors_origins: list[str] = Field(default=["*"])
 
