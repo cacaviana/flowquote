@@ -9,11 +9,19 @@
   let flows = $state<Flow[]>([]);
   let loading = $state(true);
 
+  let erro = $state('');
+
   onMount(async () => {
-    const all = await service.list();
-    // Filter out scheduling flows — they have their own dashboard
-    flows = all.filter(f => (f as any).flow_type !== 'scheduling');
-    loading = false;
+    try {
+      const all = await service.list();
+      // Filter out scheduling flows — they have their own dashboard
+      flows = all.filter(f => (f as any).flow_type !== 'scheduling');
+    } catch (e) {
+      erro = 'Erreur de chargement — reconnectez-vous si le problème persiste.';
+      console.error(e);
+    } finally {
+      loading = false;
+    }
   });
 
   function createNew() {

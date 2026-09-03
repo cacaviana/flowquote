@@ -42,11 +42,16 @@ export function getTenantSlug(): string {
 }
 
 /** fetch com Authorization: Bearer quando ha sessao (chamadas admin). */
-export function authFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+export async function authFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
 	const session = getSession();
 	const headers = new Headers(init.headers);
 	if (session?.access_token && !headers.has('Authorization')) {
 		headers.set('Authorization', `Bearer ${session.access_token}`);
 	}
-	return fetch(input, { ...init, headers });
+	const res = await fetch(input, { ...init, headers });
+	if (res.status === 401 && typeof location !== 'undefined' && location.pathname.startsWith('/admin')) {
+		clearSession();
+		location.href = '/login';
+	}
+	return res;
 }
