@@ -1,11 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
 from dtos.flow.save_flow.request import SaveFlowRequest
+from dtos.flow.generate_flow.request import GenerateFlowRequest
 from services.flow_service import FlowService
 from dependencies.tenant import TenantContext, get_tenant_context
 
 router = APIRouter(prefix="/api/flows", tags=["flows"])
 
 _service = FlowService()
+
+
+
 
 
 @router.get("")
@@ -34,6 +38,22 @@ async def get_flow_by_slug(slug: str):
     if not result:
         raise HTTPException(status_code=404, detail="Flow nao encontrado")
     return result
+
+
+@router.post("/generate")
+async def generate_flow(request: GenerateFlowRequest, ctx: TenantContext = Depends(get_tenant_context)):
+    """Gera um RASCUNHO de flow por IA a partir de uma descricao textual.
+
+    One-shot + 1 reparo; validado pelo flow_validator; cota diaria por tenant.
+    NAO salva: o front salva via POST /api/flows apos o usuario ver os avisos.
+    """
+    from services.flow_generator_service import FlowGeneratorService, QuotaExcedidaError
+    try:
+        return await FlowGeneratorService().generate(request.description, tenant_id=ctx.tenant_id)
+    except QuotaExcedidaError as e:
+        raise HTTPException(status_code=429, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
 
 @router.post("", status_code=201)

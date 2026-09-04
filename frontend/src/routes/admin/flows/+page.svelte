@@ -94,6 +94,12 @@
         </svg>
         Demandes
       </button>
+      <a href="/admin/flows/reference"
+        class="px-3 py-2 rounded-lg text-sm font-medium border text-gray-600 hover:bg-gray-50"
+        title="Tout ce qu'un flux peut faire">📘 Référence</a>
+      <a href="/admin/flows/new-ia"
+        class="px-4 py-2 rounded-lg text-sm font-medium border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100"
+      >✨ Créer avec l'IA</a>
       <button
         onclick={createNew}
         class="bg-petra-mid text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-petra-dark cursor-pointer"
