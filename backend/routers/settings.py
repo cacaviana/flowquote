@@ -11,12 +11,13 @@ LEGACY_DOC_ID = "ai_settings"
 
 MODELS = {
     "anthropic": [
-        {"id": "claude-sonnet-4-20250514", "label": "Claude Sonnet 4"},
-        {"id": "claude-opus-4-6", "label": "Claude Opus 4.6"},
+        {"id": "claude-sonnet-5", "label": "Claude Sonnet 5 (recommandé)"},
+        {"id": "claude-haiku-4-5", "label": "Claude Haiku 4.5 (économique)"},
+        {"id": "claude-opus-4-8", "label": "Claude Opus 4.8"},
     ],
     "openai": [
+        {"id": "gpt-4o-mini", "label": "GPT-4o mini"},
         {"id": "gpt-4o", "label": "GPT-4o"},
-        {"id": "gpt-4.5-preview", "label": "GPT-4.5"},
     ],
 }
 
