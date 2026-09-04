@@ -36,7 +36,7 @@ class Settings(BaseSettings):
 
     # Anthropic
     anthropic_api_key: Optional[str] = Field(default=None)
-    anthropic_model: str = Field(default="claude-sonnet-4-20250514")
+    anthropic_model: str = Field(default="claude-sonnet-5")
 
     class Config:
         env_file = ".env"

@@ -120,7 +120,33 @@ class FlowGeneratorService:
         if usados >= COTA_DIARIA:
             raise QuotaExcedidaError(f"Cota diaria de {COTA_DIARIA} geracoes atingida")
 
+    @staticmethod
+    def _extrair_json(texto: str) -> dict:
+        t = texto.strip()
+        if t.startswith("```"):
+            t = re.sub(r"^```[a-z]*\n?", "", t)
+            t = re.sub(r"\n?```$", "", t)
+        ini, fim = t.find("{"), t.rfind("}")
+        if ini >= 0 and fim > ini:
+            t = t[ini:fim + 1]
+        return json.loads(t)
+
     async def _chamar_llm(self, mensagens: list[dict]) -> tuple[dict, int, int]:
+        """Anthropic (chave principal do produto) com fallback OpenAI."""
+        if settings.anthropic_api_key:
+            from anthropic import AsyncAnthropic
+            client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+            system = next((m["content"] for m in mensagens if m["role"] == "system"), "")
+            resto = [m for m in mensagens if m["role"] != "system"]
+            resp = await client.messages.create(
+                model=settings.anthropic_model,
+                max_tokens=16000,
+                system=system,
+                messages=resto,
+            )
+            texto = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
+            return self._extrair_json(texto), resp.usage.input_tokens, resp.usage.output_tokens
+
         from openai import AsyncOpenAI
         client = AsyncOpenAI(api_key=settings.openai_api_key)
         resp = await client.chat.completions.create(
@@ -139,7 +165,7 @@ class FlowGeneratorService:
             await mongodb_client.database["ai_generations"].insert_one({
                 "tenant_id": tenant_id,
                 "at": datetime.now(timezone.utc),
-                "model": settings.openai_model,
+                "model": settings.anthropic_model if settings.anthropic_api_key else settings.openai_model,
                 "ok": ok,
                 "tokens_input": t_in,
                 "tokens_output": t_out,
